@@ -1,0 +1,41 @@
+/* Performance optimizations */
+.will-change-transform {
+  will-change: transform;
+}
+
+.will-change-opacity {
+  will-change: opacity;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Loading skeleton optimizations */
+.skeleton {
+  @apply animate-pulse bg-muted;
+  border-radius: inherit;
+}
+
+/* Optimize transform performance */
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Page transition optimizations */
+.page-transition {
+  @apply transition-all duration-300 ease-in-out will-change-transform;
+}
+
+/* Preload animations to prevent layout shifts */
+.preload-animations * {
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
+}

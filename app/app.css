@@ -1,0 +1,358 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --font-sans: var(--font-apple-system);
+    --font-mono: var(--font-sf-mono);
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --radius-sm: 8px;
+    --radius-md: 10px;
+    --radius-lg: 12px;
+    --radius-xl: 20px;
+}
+
+:root {
+    /* Modern Light Theme Colors - Softer and more premium */
+    --background: #fafafa; /* Softer off-white instead of pure white */
+    --foreground: #1a1a1a; /* Softer black for better readability */
+    --card: #ffffff; /* Keep cards white for contrast */
+    --card-foreground: #1a1a1a;
+    --popover: #ffffff;
+    --popover-foreground: #1a1a1a;
+    --primary: #0066cc; /* Slightly deeper blue */
+    --primary-foreground: #ffffff;
+    --secondary: #f1f3f5; /* Warmer light gray */
+    --secondary-foreground: #374151;
+    --muted: #f8fafc; /* Very light blue-gray */
+    --muted-foreground: #64748b; /* Better contrast gray */
+    --accent: #0066cc; /* Match primary */
+    --accent-foreground: #ffffff;
+    --destructive: #dc2626; /* Modern red */
+    --destructive-foreground: #ffffff;
+    --border: #e2e8f0; /* Subtle blue-gray border */
+    --input: #ffffff; /* White input backgrounds */
+    --ring: #0066cc;
+    --chart-1: #0066cc; /* Deep Blue */
+    --chart-2: #059669; /* Emerald Green */
+    --chart-3: #ea580c; /* Orange */
+    --chart-4: #d97706; /* Amber */
+    --chart-5: #7c3aed; /* Violet */
+    --sidebar: #f8fafc; /* Light blue-gray sidebar */
+    --sidebar-foreground: #374151;
+    --sidebar-primary: #0066cc;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #f1f5f9;
+    --sidebar-accent-foreground: #374151;
+    --sidebar-border: #e2e8f0;
+    --sidebar-ring: #0066cc;
+    /* Apple Fonts */
+    --font-apple-system:
+        -apple-system, BlinkMacSystemFont, "San Francisco", "Helvetica Neue",
+        Helvetica, sans-serif;
+    --font-sf-mono: "SF Mono", Menlo, monospace;
+    --font-sans: var(--font-apple-system);
+    --font-serif: "New York", Georgia, serif;
+    --font-mono: var(--font-sf-mono);
+    /* Apple uses more rounded corners */
+    --radius: 10px;
+    /* Apple-style shadows */
+    --shadow-2xs: 0px 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-xs: 0px 1px 3px rgba(0, 0, 0, 0.1);
+    --shadow-sm: 0px 2px 4px rgba(0, 0, 0, 0.1);
+    --shadow: 0px 2px 6px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0px 8px 16px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0px 12px 24px rgba(0, 0, 0, 0.1);
+    --shadow-2xl: 0px 16px 32px rgba(0, 0, 0, 0.1);
+}
+
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+    /* Prevent FOUC and improve loading performance */
+    html {
+        /* Start with light theme to prevent flash */
+        background-color: #fafafa;
+        color: #1a1a1a;
+    }
+    
+    body {
+        @apply bg-background text-foreground font-sans;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        /* Improve font rendering performance */
+        text-rendering: optimizeLegibility;
+        /* Prevent layout shifts during loading */
+        min-height: 100vh;
+        overflow-x: hidden;
+    }
+    
+    /* Improve image loading performance */
+    img {
+        loading: lazy;
+        decoding: async;
+    }
+    
+    /* Optimize link transitions */
+    a {
+        @apply transition-colors duration-200;
+    }
+    button,
+    input,
+    select,
+    textarea {
+        @apply focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all duration-200;
+    }
+    button {
+        @apply hover:cursor-pointer;
+    }
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        @apply font-medium tracking-tight;
+    }
+}
+
+.dark {
+    /* Softer Dark Theme - Warm gray tones instead of harsh blacks */
+    --background: #1e1e20; /* Soft dark gray instead of deep black */
+    --foreground: #f8fafc; /* Slightly warmer white text */
+    --card: #2a2a2d; /* Warmer dark gray cards */
+    --card-foreground: #f8fafc;
+    --popover: #2a2a2d;
+    --popover-foreground: #f8fafc;
+    --primary: #8e63ff; /* Violet accent */
+    --primary-foreground: #ffffff;
+    --secondary: #3a3a3f; /* Lighter, warmer gray */
+    --secondary-foreground: #f8fafc;
+    --muted: #3a3a3f;
+    --muted-foreground: #a1a1aa;
+    --accent: #38bdf8; /* Cyan blue accent */
+    --accent-foreground: #1e1e20;
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+    --border: #3a3a3f; /* Warmer, more visible borders */
+    --input: #2a2a2d;
+    --ring: #8e63ff;
+    --chart-1: #8e63ff; /* Violet */
+    --chart-2: #38bdf8; /* Cyan blue */
+    --chart-3: #10b981; /* Emerald */
+    --chart-4: #f59e0b; /* Amber */
+    --chart-5: #ec4899; /* Pink */
+    
+    /* Sidebar specific dark colors */
+    --sidebar: #1e1e20; /* Match softer background */
+    --sidebar-foreground: #f8fafc;
+    --sidebar-primary: #8e63ff;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #2a2a2d;
+    --sidebar-accent-foreground: #f8fafc;
+    --sidebar-border: #3a3a3f;
+    --sidebar-ring: #8e63ff;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+}
+
+/* Custom scrollbar styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #3a3a3f;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #4a4a4f;
+}
+
+/* Glowing card effects */
+.glow-card {
+  @apply relative overflow-hidden;
+}
+
+.glow-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent, rgba(142, 99, 255, 0.1), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.glow-card:hover::before {
+  opacity: 1;
+}
+
+/* Animated gradient backgrounds */
+.gradient-bg {
+  background: linear-gradient(135deg, #8e63ff 0%, #38bdf8 100%);
+  background-size: 200% 200%;
+  animation: gradientShift 6s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Glowing text effect */
+.glow-text {
+  text-shadow: 0 0 10px rgba(142, 99, 255, 0.5);
+}
+
+/* Soft shadows for cards */
+.card-shadow {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.dark .card-shadow {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Enhanced card styling */
+.enhanced-card {
+  @apply bg-card border border-border rounded-xl shadow-sm hover:shadow-md transition-all duration-200;
+}
+
+.enhanced-card:hover {
+  transform: translateY(-1px);
+}
+
+/* Modern input styling */
+.modern-input {
+  @apply bg-white border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground;
+  @apply focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary;
+  @apply shadow-sm hover:shadow-md transition-all duration-200;
+}
+
+/* Enhanced button styles */
+.modern-button-primary {
+  @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium;
+  @apply transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+  @apply hover:scale-[1.02] active:scale-[0.98];
+  @apply bg-primary text-primary-foreground hover:bg-primary/90;
+  @apply shadow-lg hover:shadow-xl focus:ring-primary/50;
+}
+
+.modern-button-secondary {
+  @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium;
+  @apply transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+  @apply hover:scale-[1.02] active:scale-[0.98];
+  @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
+  @apply shadow-sm hover:shadow-md focus:ring-secondary/50;
+}
+
+/* Softer page backgrounds */
+.page-background {
+  background: linear-gradient(135deg, #fafafa 0%, #f1f5f9 50%, #fafafa 100%);
+}
+
+.dark .page-background {
+  background: linear-gradient(135deg, #1e1e20 0%, #242428 50%, #1e1e20 100%);
+}
+
+
+/* Performance optimizations */
+.will-change-transform {
+  will-change: transform;
+}
+
+.will-change-opacity {
+  will-change: opacity;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms \!important;
+    animation-iteration-count: 1 \!important;
+    transition-duration: 0.01ms \!important;
+  }
+}
+
+/* Loading skeleton optimizations */
+.skeleton {
+  @apply animate-pulse bg-muted;
+  border-radius: inherit;
+}
+
+/* Optimize transform performance */
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Page transition optimizations */
+.page-transition {
+  @apply transition-all duration-300 ease-in-out will-change-transform;
+}
+
+/* Preload animations to prevent layout shifts */
+.preload-animations * {
+  animation-duration: 0s \!important;
+  transition-duration: 0s \!important;
+}

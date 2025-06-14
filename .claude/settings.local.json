@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(awk:*)",
+      "Bash(rm:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(node:*)",
+      "Bash(grep:*)",
+      "Bash(npm install)",
+      "Bash(rg:*)",
+      "Bash(npx tsc:*)",
+      "Bash(wc:*)",
+      "WebFetch(domain:huly.io)",
+      "Bash(mv:*)",
+      "Bash(npm run dev:*)",
+      "Bash(cp:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": []
+  }
+}

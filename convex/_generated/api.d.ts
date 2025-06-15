@@ -8,16 +8,24 @@
  * @module
  */
 
+import type * as dashboardCache from "../dashboardCache.js";
 import type * as dashboardQueries from "../dashboardQueries.js";
+import type * as diagnosticQueries from "../diagnosticQueries.js";
+import type * as diagnostics from "../diagnostics.js";
 import type * as http from "../http.js";
 import type * as inventory from "../inventory.js";
+import type * as inventoryMutations from "../inventoryMutations.js";
 import type * as inventoryQueries from "../inventoryQueries.js";
+import type * as salesCache from "../salesCache.js";
 import type * as salesQueries from "../salesQueries.js";
 import type * as salesRepQueries from "../salesRepQueries.js";
 import type * as sku_vendor_map from "../sku_vendor_map.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as ticketHistoryEnhanced from "../ticketHistoryEnhanced.js";
+import type * as ticketMutations from "../ticketMutations.js";
+import type * as ticketParserFixed from "../ticketParserFixed.js";
 import type * as ticketStats from "../ticketStats.js";
+import type * as ticketValidation from "../ticketValidation.js";
 import type * as users from "../users.js";
 import type * as utils_inventoryOptimization from "../utils/inventoryOptimization.js";
 
@@ -36,16 +44,24 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  dashboardCache: typeof dashboardCache;
   dashboardQueries: typeof dashboardQueries;
+  diagnosticQueries: typeof diagnosticQueries;
+  diagnostics: typeof diagnostics;
   http: typeof http;
   inventory: typeof inventory;
+  inventoryMutations: typeof inventoryMutations;
   inventoryQueries: typeof inventoryQueries;
+  salesCache: typeof salesCache;
   salesQueries: typeof salesQueries;
   salesRepQueries: typeof salesRepQueries;
   sku_vendor_map: typeof sku_vendor_map;
   subscriptions: typeof subscriptions;
   ticketHistoryEnhanced: typeof ticketHistoryEnhanced;
+  ticketMutations: typeof ticketMutations;
+  ticketParserFixed: typeof ticketParserFixed;
   ticketStats: typeof ticketStats;
+  ticketValidation: typeof ticketValidation;
   users: typeof users;
   "utils/inventoryOptimization": typeof utils_inventoryOptimization;
 }>;

@@ -21,8 +21,8 @@ interface ParsingError {
 }
 
 // ===== Constants =====
-// Use the proven regex pattern from working code
-const TICKET_PATTERN = /AB-[A-Z]{2,3}-T\d+|AB-[A-Z]{2}-1T\d+|AB[A-Z]{2,4}\d{5}-\d{2}/
+// Updated regex pattern to handle all ticket formats including without AB prefix
+const TICKET_PATTERN = /AB-[A-Z]{2,4}-T\d{5,7}|AB-[A-Z]{2}-1T\d{5,7}|AB[A-Z]{2,4}\d{4,6}-\d{2}|[A-Z]{2,4}-T\d{5,7}/
 
 const GIFT_CARD_INDICATORS = [
   'gift card #',
@@ -70,7 +70,7 @@ function getTicketFormat(ticketNumber: string): string {
 
 function extractStoreId(ticketNumber: string): string {
   // Format C — Legacy with suffix: ABFS34462-01 (check first since it has hyphens)
-  if (/^[A-Z]{4}\d{5}-\d{2}$/.test(ticketNumber)) {
+  if (/^[A-Z]{4}\d{4,6}-\d{2}$/.test(ticketNumber)) {
     const storeCode = ticketNumber.substring(2, 4) // Extract middle 2 letters (FS from ABFS)
     return `AB-${storeCode}`
   }
@@ -778,13 +778,40 @@ export function parseTickets(
 
 // Helper functions from working code
 function deriveStoreId(ticket: string): string {
-  if (ticket.includes('-')) {
-    const parts = ticket.split('-')
+  const trimmed = ticket.trim()
+  
+  // Format 1: AB-XXX-TNNNNNN or AB-XX-TNNNNNN (standard format)
+  if (/^AB-[A-Z]{2,4}-T\d{5,7}$/.test(trimmed)) {
+    const parts = trimmed.split('-')
+    return `${parts[0]}-${parts[1]}` // e.g., "AB-CL"
+  }
+  
+  // Format 2: AB-XX-1TNNNNNN (alternate format with 1T)
+  if (/^AB-[A-Z]{2}-1T\d{5,7}$/.test(trimmed)) {
+    const parts = trimmed.split('-')
+    return `${parts[0]}-${parts[1]}` // e.g., "AB-SG"
+  }
+  
+  // Format 3: ABXXNNNNN-01 (legacy format with suffix)
+  if (/^AB[A-Z]{2,4}\d{5}-\d{2}$/.test(trimmed)) {
+    const storeCode = trimmed.substring(2, 4) // Extract store letters after "AB"
+    return `AB-${storeCode}` // e.g., "AB-FS"
+  }
+  
+  // Format 4: CL-TNNNNNN (without AB prefix)
+  if (/^[A-Z]{2,4}-T\d{5,7}$/.test(trimmed)) {
+    const parts = trimmed.split('-')
+    return `AB-${parts[0]}` // Add AB prefix, e.g., "AB-CL"
+  }
+  
+  // Fallback for any other hyphened format
+  if (trimmed.includes('-')) {
+    const parts = trimmed.split('-')
     if (parts.length >= 2) return `${parts[0]}-${parts[1]}`
   }
-  const match = ticket.match(/^AB([A-Z]{2,4})\d{5}-\d{2}$/)
-  if (match) return `AB-${match[1]}`
-  return ticket.substring(0, 4)
+  
+  // Final fallback
+  return trimmed.substring(0, 5)
 }
 
 function deriveOnlineStoreId(ticket: string): string {
@@ -911,7 +938,7 @@ export const parseAndInsertTicketsEnhanced = mutation({
     // Load SKU map
     const skuMap: Record<string, string> = {}
     try {
-      const skuEntries = await ctx.db.query('sku_vendor_map').collect()
+      const skuEntries = await ctx.db.query('sku_vendor_map').take(5000) // Limit for performance
       for (const entry of skuEntries) {
         if (entry.item_number && entry.description) {
           skuMap[String(entry.item_number)] = String(entry.description)
@@ -1269,7 +1296,7 @@ export const cleanupBadTickets = mutation({
           q.eq(q.field('sale_date'), '')
         )
       )
-      .collect()
+      .take(1000) // Limit for performance
     
     for (const ticket of badTickets) {
       toDelete.push(ticket._id)

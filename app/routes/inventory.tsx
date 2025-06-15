@@ -1,230 +1,646 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-
-
 import { useUser } from "@clerk/react-router";
-import { useState } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Package, AlertTriangle, TrendingDown, ArrowUpDown, Store, Search, Filter, Download, RefreshCw, ArrowRight } from "lucide-react";
+import { Package, TrendingUp, Filter, FileText, Trash2, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
 import { Badge } from "~/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "~/components/ui/dialog";
+import { Progress } from "~/components/ui/progress";
 import { cn } from "~/lib/utils";
-
-function MetricCard({ 
-  title, 
-  value, 
-  change, 
-  changeType, 
-  icon: Icon, 
-  delay = 0,
-  onClick
-}: {
-  title: string;
-  value: string;
-  change?: string;
-  changeType?: "positive" | "negative" | "neutral";
-  icon: any;
-  delay?: number;
-  onClick?: () => void;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.5, ease: "easeOut" }}
-      whileHover={{ y: -2 }}
-      onClick={onClick}
-      className={cn(onClick && "cursor-pointer", "group")}
-    >
-      <Card className="glow-card card-shadow hover:shadow-2xl hover:shadow-primary/20 transition-all duration-300 hover:scale-[1.02] border-border/50 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            {title}
-          </CardTitle>
-          <div className="p-2 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 group-hover:from-primary/20 group-hover:to-accent/20 transition-all duration-300">
-            <Icon className="h-5 w-5 text-primary group-hover:text-primary/80 transition-colors duration-300" />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="text-3xl font-bold text-foreground mb-2 glow-text">
-            {value}
-          </div>
-          {change && (
-            <div className={cn(
-              "flex items-center px-2 py-1 rounded-full text-xs font-medium",
-              changeType === "positive" && "bg-green-500/10 text-green-400 border border-green-500/20",
-              changeType === "negative" && "bg-red-500/10 text-red-400 border border-red-500/20",
-              changeType === "neutral" && "bg-muted/50 text-muted-foreground border border-border"
-            )}>
-              {change}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
-}
-
-function InventoryTable({ items }: { items: any[] }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-border">
-            <th className="text-left py-3 px-4 font-medium text-foreground">Product</th>
-            <th className="text-left py-3 px-4 font-medium text-foreground">Store</th>
-            <th className="text-left py-3 px-4 font-medium text-foreground">On Hand</th>
-            <th className="text-left py-3 px-4 font-medium text-foreground">Sold</th>
-            <th className="text-left py-3 px-4 font-medium text-foreground">Vendor</th>
-            <th className="text-left py-3 px-4 font-medium text-foreground">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item, index) => (
-            <motion.tr
-              key={`${item.item_number}-${item.store_id}`}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05, duration: 0.3 }}
-              className="border-b border-border/50 hover:bg-muted/30 transition-colors duration-200"
-            >
-              <td className="py-3 px-4">
-                <div>
-                  <p className="font-medium text-foreground text-sm">{item.product_name}</p>
-                  <p className="text-xs text-muted-foreground">#{item.item_number}</p>
-                </div>
-              </td>
-              <td className="py-3 px-4">
-                <Badge variant="outline">Store {item.store_id}</Badge>
-              </td>
-              <td className="py-3 px-4">
-                <span className={cn(
-                  "font-medium",
-                  item.qty_on_hand === 0 && "text-red-600 dark:text-red-400",
-                  item.qty_on_hand <= 5 && item.qty_on_hand > 0 && "text-amber-600 dark:text-amber-400",
-                  item.qty_on_hand > 5 && "text-foreground"
-                )}>
-                  {item.qty_on_hand}
-                </span>
-              </td>
-              <td className="py-3 px-4 text-muted-foreground">
-                {item.qty_sold || 0}
-              </td>
-              <td className="py-3 px-4 text-muted-foreground text-sm">
-                {item.primary_vendor}
-              </td>
-              <td className="py-3 px-4">
-                <div className="flex items-center space-x-2">
-                  {item.qty_on_hand === 0 && (
-                    <Badge variant="destructive">Out of Stock</Badge>
-                  )}
-                  {item.qty_on_hand <= 5 && item.qty_on_hand > 0 && (
-                    <Badge variant="secondary" className="bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
-                      Low Stock
-                    </Badge>
-                  )}
-                  {item.flag_reorder && (
-                    <Badge variant="outline" className="text-blue-600 dark:text-blue-400">
-                      Reorder
-                    </Badge>
-                  )}
-                  {item.flag_transfer && (
-                    <Badge variant="outline" className="text-purple-600 dark:text-purple-400">
-                      Transfer
-                    </Badge>
-                  )}
-                </div>
-              </td>
-            </motion.tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export default function InventoryPage() {
   const { user } = useUser();
   const userId = user?.id;
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
+  
   const [filters, setFilters] = useState({
     storeId: "all",
     vendor: "all",
-    stockLevel: "all",
-    search: ""
+    uploadId: "all"
+  });
+  
+  const [reportStore, setReportStore] = useState("");
+  const [editedLines, setEditedLines] = useState<Map<string, any>>(new Map());
+  const [removedLines, setRemovedLines] = useState<Set<string>>(new Set());
+  
+  // Deletion progress state
+  const [deletionProgress, setDeletionProgress] = useState({
+    isDeleting: false,
+    currentStep: "",
+    totalLines: 0,
+    deletedLines: 0,
+    totalLogs: 0,
+    deletedLogs: 0,
+    showProgress: false
   });
 
-  const inventoryData = useQuery(
-    api.inventoryQueries.getInventoryOverview,
-    userId ? { userId, ...filters } : "skip"
-  );
-
+  // Queries
   const inventoryFilters = useQuery(
     api.inventoryQueries.getInventoryFilters,
     userId ? { userId } : "skip"
   );
 
-  const transferLogs = useQuery(
-    api.inventoryQueries.getTransferLogs,
-    userId ? { userId } : "skip"
+  // Separate state for Create Report section
+  const [reportUploadId, setReportUploadId] = useState("");
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  
+  // Pagination state for report table
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
+  
+  const inventoryData = useQuery(
+    api.inventoryQueries.getInventoryDataForReport,
+    userId && reportUploadId && reportUploadId !== "" && reportStore && reportStore !== ""
+      ? { 
+          userId, 
+          uploadId: reportUploadId,
+          storeId: reportStore
+        } 
+      : "skip"
   );
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    // Simulate refresh - in real app this would refetch data
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 1000);
-  };
+  // Get vendor/brand mapping for the current upload
+  const uploadInfo = inventoryFilters?.uploads.find(upload => upload.id === reportUploadId);
+  const primaryVendor = uploadInfo?.vendor;
+  
+  const vendorBrandInfo = useQuery(
+    api.inventoryQueries.getVendorBrandMapping,
+    userId && primaryVendor ? { userId, primaryVendor } : "skip"
+  );
 
-  const handleExport = () => {
-    if (!inventoryData) return;
+  const uploadOverview = useQuery(
+    api.inventoryQueries.getUploadOverview,
+    userId ? { 
+      userId, 
+      uploadId: filters.uploadId !== "all" ? filters.uploadId : undefined,
+      storeId: filters.storeId !== "all" ? filters.storeId : undefined
+    } : "skip"
+  );
+
+  // Mutations
+  const updateInventoryLine = useMutation(api.inventoryMutations.updateInventoryLine);
+  const deleteInventoryLinesBatch = useMutation(api.inventoryMutations.deleteInventoryLinesBatch);
+  const deleteTransferLogsBatch = useMutation(api.inventoryMutations.deleteTransferLogsBatch);
+  const deleteUploadRecord = useMutation(api.inventoryMutations.deleteUploadRecord);
+
+  // Handle quantity updates
+  const handleQuantityUpdate = useCallback((lineId: string, field: string, value: string) => {
+    const numValue = parseInt(value) || 0;
+    setEditedLines(prev => {
+      const currentEdits = prev.get(lineId) || {};
+      const newEdits = new Map(prev);
+      newEdits.set(lineId, { ...currentEdits, [field]: numValue });
+      return newEdits;
+    });
+  }, []);
+
+  // Save changes to database
+  const saveChanges = useCallback(async (lineId: string) => {
+    setEditedLines(prev => {
+      const edits = prev.get(lineId);
+      if (!edits) return prev;
+
+      updateInventoryLine({
+        lineId,
+        updates: edits
+      }).then(() => {
+        // Clear edits for this line after successful save
+        setEditedLines(current => {
+          const newEdits = new Map(current);
+          newEdits.delete(lineId);
+          return newEdits;
+        });
+      }).catch(error => {
+        console.error("Failed to save changes:", error);
+      });
+
+      return prev;
+    });
+  }, [updateInventoryLine]);
+
+  // Handle line removal
+  const handleRemoveLine = useCallback((lineId: string) => {
+    setRemovedLines(prev => {
+      const newRemoved = new Set(prev);
+      if (newRemoved.has(lineId)) {
+        newRemoved.delete(lineId);
+      } else {
+        newRemoved.add(lineId);
+      }
+      return newRemoved;
+    });
+  }, []);
+
+  // Calculate paginated data
+  const paginatedData = useMemo(() => {
+    if (!inventoryData?.inventoryLines) return { items: [], totalPages: 0, totalItems: 0 };
     
-    const csvData = [
-      ['Product', 'Store', 'On Hand', 'Sold', 'Vendor', 'Status'].join(','),
-      ...inventoryData.inventoryItems.map(item => [
-        item.product_name,
-        `Store ${item.store_id}`,
-        item.qty_on_hand,
-        item.qty_sold || 0,
-        item.primary_vendor,
-        item.qty_on_hand === 0 ? 'Out of Stock' : 
-        item.qty_on_hand <= 5 ? 'Low Stock' : 'In Stock'
-      ].join(','))
-    ].join('\n');
+    const filteredItems = inventoryData.inventoryLines.filter(line => !removedLines.has(line._id));
+    const totalItems = filteredItems.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const items = filteredItems.slice(startIndex, endIndex);
+    
+    return { items, totalPages, totalItems };
+  }, [inventoryData?.inventoryLines, removedLines, currentPage, itemsPerPage]);
 
-    const blob = new Blob([csvData], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `inventory-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  // Pre-render the table rows to avoid conditional hooks
+  const tableRows = useMemo(() => 
+    paginatedData.items.map((line, index) => {
+      const edits = editedLines.get(line._id) || {};
+      const hasEdits = Object.keys(edits).length > 0;
+  
+      return (
+        <motion.tr
+          key={line._id}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: index * 0.05, duration: 0.3 }}
+          className={cn(
+            "border-b border-border/50 hover:bg-muted/30 transition-colors duration-200",
+            hasEdits && "bg-primary/5"
+          )}
+        >
+          <td className="py-3 px-4 text-sm">{line.item_number}</td>
+          <td className="py-3 px-4">
+            <p className="font-medium text-sm">{line.product_name}</p>
+          </td>
+          <td className="py-3 px-4 text-center text-sm">{line.qty_sold}</td>
+          <td className="py-3 px-4 text-center text-sm">{line.qty_on_hand}</td>
+          <td className="py-3 px-4">
+            <Input
+              type="number"
+              min="0"
+              value={edits.transfer_in_qty ?? line.transfer_in_qty}
+              onChange={(e) => handleQuantityUpdate(line._id, "transfer_in_qty", e.target.value)}
+              onBlur={() => Object.keys(editedLines.get(line._id) || {}).length > 0 && saveChanges(line._id)}
+              className="w-20 mx-auto text-center"
+            />
+          </td>
+          <td className="py-3 px-4">
+            <Input
+              type="number"
+              min="0"
+              value={edits.transfer_out_qty ?? line.transfer_out_qty}
+              onChange={(e) => handleQuantityUpdate(line._id, "transfer_out_qty", e.target.value)}
+              onBlur={() => Object.keys(editedLines.get(line._id) || {}).length > 0 && saveChanges(line._id)}
+              className="w-20 mx-auto text-center"
+            />
+          </td>
+          <td className="py-3 px-4">
+            <Input
+              type="number"
+              min="0"
+              value={edits.suggested_reorder_qty ?? line.suggested_reorder_qty}
+              onChange={(e) => handleQuantityUpdate(line._id, "suggested_reorder_qty", e.target.value)}
+              onBlur={() => Object.keys(editedLines.get(line._id) || {}).length > 0 && saveChanges(line._id)}
+              className="w-20 mx-auto text-center"
+            />
+          </td>
+          <td className="py-3 px-4 text-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleRemoveLine(line._id)}
+              className={cn(
+                "hover:text-destructive",
+                removedLines.has(line._id) && "text-destructive"
+              )}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </td>
+        </motion.tr>
+      );
+    }), [paginatedData.items, editedLines, handleQuantityUpdate, saveChanges, handleRemoveLine, removedLines]);
 
-  const handleReorder = (item: any) => {
-    // For now, just show an alert - in a real app this would create a purchase order
-    alert(`Reorder request created for ${item.product_name} at Store ${item.store_id}`);
-  };
+  // Reset page when upload changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [reportUploadId]);
 
-  if (!inventoryData) {
-    return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-32 bg-gray-200 dark:bg-gray-700 rounded-lg" />
-            ))}
-          </div>
-          <div className="h-80 bg-gray-200 dark:bg-gray-700 rounded-lg" />
-        </div>
-      </div>
+  // Keyboard navigation for pagination
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (!inventoryData || paginatedData.totalPages <= 1) return;
+      
+      // Only handle arrow keys when not focused on an input
+      if (document.activeElement?.tagName === 'INPUT') return;
+      
+      if (event.key === 'ArrowLeft' && currentPage > 1) {
+        setCurrentPage(prev => prev - 1);
+        event.preventDefault();
+      } else if (event.key === 'ArrowRight' && currentPage < paginatedData.totalPages) {
+        setCurrentPage(prev => prev + 1);
+        event.preventDefault();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => document.removeEventListener('keydown', handleKeyPress);
+  }, [currentPage, paginatedData.totalPages, inventoryData]);
+
+  // Handle upload deletion
+  const handleDeleteUpload = useCallback(async (uploadId: string) => {
+    if (!userId) return;
+    
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this upload and all associated inventory lines? This action cannot be undone."
     );
-  }
+    
+    if (!confirmDelete) return;
+    
+    // Initialize progress tracking
+    setDeletionProgress({
+      isDeleting: true,
+      currentStep: "Estimating data to delete...",
+      totalLines: 0,
+      deletedLines: 0,
+      totalLogs: 0,
+      deletedLogs: 0,
+      showProgress: true
+    });
+    
+    try {
+      let totalDeletedLines = 0;
+      let totalDeletedLogs = 0;
+      
+      // Estimate total counts for better progress tracking
+      setDeletionProgress(prev => ({
+        ...prev,
+        currentStep: "Deleting inventory lines..."
+      }));
+      
+      // Delete inventory lines in batches
+      while (true) {
+        const result = await deleteInventoryLinesBatch({ userId, uploadId });
+        totalDeletedLines += result.deletedCount;
+        
+        setDeletionProgress(prev => ({
+          ...prev,
+          deletedLines: totalDeletedLines,
+          currentStep: `Deleting inventory lines... (${totalDeletedLines} deleted)`
+        }));
+        
+        if (!result.hasMore) break;
+      }
+      
+      // Delete transfer logs in batches
+      setDeletionProgress(prev => ({
+        ...prev,
+        currentStep: "Deleting transfer logs..."
+      }));
+      
+      while (true) {
+        const result = await deleteTransferLogsBatch({ userId, uploadId });
+        totalDeletedLogs += result.deletedCount;
+        
+        setDeletionProgress(prev => ({
+          ...prev,
+          deletedLogs: totalDeletedLogs,
+          currentStep: `Deleting transfer logs... (${totalDeletedLogs} deleted)`
+        }));
+        
+        if (!result.hasMore) break;
+      }
+      
+      // Finally delete the upload record
+      setDeletionProgress(prev => ({
+        ...prev,
+        currentStep: "Finalizing deletion..."
+      }));
+      
+      await deleteUploadRecord({ userId, uploadId });
+      
+      // Reset form state if the deleted upload was currently selected
+      if (reportUploadId === uploadId) {
+        setReportUploadId("");
+        setReportStore("");
+        setEditedLines(new Map());
+        setRemovedLines(new Set());
+      }
+      
+      // Reset filters if the deleted upload was selected there
+      if (filters.uploadId === uploadId) {
+        setFilters(prev => ({ ...prev, uploadId: "all" }));
+      }
+      
+      // Show completion
+      setDeletionProgress(prev => ({
+        ...prev,
+        currentStep: "Deletion completed!",
+        isDeleting: false
+      }));
+      
+      // Close progress dialog after a short delay
+      setTimeout(() => {
+        setDeletionProgress(prev => ({ ...prev, showProgress: false }));
+        alert(`Upload deleted successfully! Removed ${totalDeletedLines} inventory lines and ${totalDeletedLogs} transfer logs.`);
+      }, 1500);
+      
+    } catch (error) {
+      console.error("Failed to delete upload:", error);
+      setDeletionProgress(prev => ({
+        ...prev,
+        isDeleting: false,
+        currentStep: "Deletion failed",
+        showProgress: false
+      }));
+      alert("Failed to delete upload. Please try again.");
+    }
+  }, [userId, deleteInventoryLinesBatch, deleteTransferLogsBatch, deleteUploadRecord, reportUploadId, filters.uploadId]);
+
+  // Generate PDF Report
+  const generateReport = useCallback(async () => {
+    try {
+      if (!reportStore || !inventoryData) {
+        console.warn("Missing required data for report generation");
+        return;
+      }
+
+      setIsGeneratingPDF(true);
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      
+      // Professional color palette (sophisticated & print-friendly)
+      const navyBlue: [number, number, number] = [25, 42, 86];         // Deep professional navy
+      const charcoalGray: [number, number, number] = [55, 65, 81];     // Elegant charcoal  
+      const steelBlue: [number, number, number] = [71, 85, 105];       // Muted steel blue
+      const lightGray: [number, number, number] = [248, 250, 252];     // Clean background
+      const mutedBlue: [number, number, number] = [226, 232, 240];     // Very subtle blue tint
+      const darkText: [number, number, number] = [15, 23, 42];         // Rich dark text
+      const mediumGray: [number, number, number] = [100, 116, 139];    // Professional gray
+      
+      // Add small icon logo in top right corner
+      const addIconLogo = async () => {
+        try {
+          // Use the icon SVG instead of full logo
+          const response = await fetch('/Logos/Supptraq Black Transparent Icon SVG.svg');
+          const svgText = await response.text();
+          
+          const img = new Image();
+          const svgBlob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(svgBlob);
+          
+          return new Promise((resolve, reject) => {
+            img.onload = () => {
+              try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                if (!ctx) {
+                  throw new Error('Could not get canvas context');
+                }
+                
+                // Square icon at high resolution
+                const scale = 3;
+                canvas.width = 60 * scale;
+                canvas.height = 60 * scale;
+                
+                ctx.scale(scale, scale);
+                ctx.drawImage(img, 0, 0, 60, 60);
+                
+                const dataURL = canvas.toDataURL('image/png', 1.0);
+                // Position in top left corner, smaller size
+                doc.addImage(dataURL, 'PNG', 15, 8, 15, 15);
+                
+                URL.revokeObjectURL(url);
+                resolve(true);
+              } catch (error) {
+                reject(error);
+              }
+            };
+            
+            img.onerror = () => reject(new Error('Failed to load icon'));
+            img.src = url;
+          });
+        } catch (error) {
+          throw error;
+        }
+      };
+
+      // Try to add icon logo
+      try {
+        await addIconLogo();
+      } catch (error) {
+        console.warn('Icon loading failed:', error);
+        // Small text fallback in left corner
+        doc.setTextColor(...mediumGray);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.text("SUPPTRAQ", 15, 18, { align: "left" });
+      }
+      
+      // Get brand name from vendor mapping
+      const brandName = vendorBrandInfo?.brandName || primaryVendor || "Unknown Vendor";
+      
+      // Filter out removed lines and apply edits
+      const reportData = inventoryData.inventoryLines
+        .filter(line => !removedLines.has(line._id))
+        .map(line => {
+          const edits = editedLines.get(line._id) || {};
+          return {
+            item_number: line.item_number,
+            product_name: line.product_name,
+            qty_sold: line.qty_sold,
+            qty_on_hand: line.qty_on_hand,
+            transfer_in_qty: edits.transfer_in_qty ?? line.transfer_in_qty,
+            transfer_out_qty: edits.transfer_out_qty ?? line.transfer_out_qty,
+            suggested_reorder_qty: edits.suggested_reorder_qty ?? line.suggested_reorder_qty
+          };
+        });
+
+      // Brand/Vendor name at the top
+      doc.setTextColor(navyBlue[0], navyBlue[1], navyBlue[2]);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(18);
+      doc.text(brandName, pageWidth / 2, 25, { align: "center" });
+      
+      // Report title
+      doc.setTextColor(darkText[0], darkText[1], darkText[2]);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text(`Inventory Ordering Report – ${reportStore}`, pageWidth / 2, 38, { align: "center" });
+      
+      // Report metadata
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(mediumGray[0], mediumGray[1], mediumGray[2]);
+      const reportDate = new Date().toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      doc.text(`Generated: ${reportDate}`, pageWidth / 2, 48, { align: "center" });
+      
+      // Clean separator line
+      doc.setDrawColor(steelBlue[0], steelBlue[1], steelBlue[2]);
+      doc.setLineWidth(0.5);
+      doc.line(40, 55, pageWidth - 40, 55);
+
+      // Section 1: Ordering Report
+      doc.setTextColor(navyBlue[0], navyBlue[1], navyBlue[2]);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Section 1: Items Requiring Reorder", 20, 70);
+      
+      const orderingData = reportData
+        .filter(item => item.suggested_reorder_qty > 0)
+        .map(item => [
+          item.item_number,
+          item.product_name,
+          item.qty_sold.toString(),
+          item.qty_on_hand.toString(),
+          item.suggested_reorder_qty.toString()
+        ]);
+
+      if (orderingData.length > 0) {
+        autoTable(doc, {
+          startY: 75,
+          head: [['Item Number', 'Product Name', 'Qty Sold', 'Qty On Hand', 'Reorder Qty']],
+          body: orderingData,
+          theme: 'plain',
+          styles: {
+            fontSize: 8,
+            cellPadding: { top: 4, right: 5, bottom: 4, left: 5 },
+            font: 'helvetica',
+            textColor: darkText,
+            lineColor: [210, 214, 220],
+            lineWidth: 0.3
+          },
+          headStyles: {
+            fillColor: charcoalGray,
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+            fontSize: 8,
+            halign: 'center',
+            cellPadding: { top: 5, right: 5, bottom: 5, left: 5 }
+          },
+          alternateRowStyles: {
+            fillColor: [252, 252, 253]
+          },
+          columnStyles: {
+            0: { cellWidth: 25, halign: 'center', fontStyle: 'bold' },
+            1: { cellWidth: 85 },
+            2: { cellWidth: 20, halign: 'center' },
+            3: { cellWidth: 22, halign: 'center' },
+            4: { cellWidth: 25, halign: 'center', fillColor: mutedBlue, fontStyle: 'bold' }
+          },
+          margin: { left: 15, right: 15 }
+        });
+      } else {
+        doc.setTextColor(mediumGray[0], mediumGray[1], mediumGray[2]);
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(10);
+        doc.text("No items require reordering at this time.", 20, 85);
+      }
+
+      // Section 2: Transfer Report  
+      let finalY = 75;
+      if ((doc as any).lastAutoTable && (doc as any).lastAutoTable.finalY) {
+        finalY = (doc as any).lastAutoTable.finalY;
+      }
+      
+      doc.setTextColor(navyBlue[0], navyBlue[1], navyBlue[2]);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Section 2: Transfer Activity", 20, finalY + 20);
+      
+      const transferData = reportData
+        .filter(item => item.transfer_in_qty > 0 || item.transfer_out_qty > 0)
+        .map(item => [
+          item.item_number,
+          item.product_name,
+          item.qty_on_hand.toString(),
+          item.transfer_in_qty.toString(),
+          item.transfer_out_qty.toString()
+        ]);
+
+      if (transferData.length > 0) {
+        autoTable(doc, {
+          startY: finalY + 25,
+          head: [['Item Number', 'Product Name', 'Qty On Hand', 'Transfer In', 'Transfer Out']],
+          body: transferData,
+          theme: 'plain',
+          styles: {
+            fontSize: 8,
+            cellPadding: { top: 4, right: 5, bottom: 4, left: 5 },
+            font: 'helvetica',
+            textColor: darkText,
+            lineColor: [210, 214, 220],
+            lineWidth: 0.3
+          },
+          headStyles: {
+            fillColor: charcoalGray,
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+            fontSize: 8,
+            halign: 'center',
+            cellPadding: { top: 5, right: 5, bottom: 5, left: 5 }
+          },
+          alternateRowStyles: {
+            fillColor: [252, 252, 253]
+          },
+          columnStyles: {
+            0: { cellWidth: 25, halign: 'center', fontStyle: 'bold' },
+            1: { cellWidth: 85 },
+            2: { cellWidth: 22, halign: 'center' },
+            3: { cellWidth: 22, halign: 'center', fillColor: [240, 253, 244] }, // Very subtle green
+            4: { cellWidth: 23, halign: 'center', fillColor: [254, 242, 242] }  // Very subtle red
+          },
+          margin: { left: 15, right: 15 }
+        });
+      } else {
+        doc.setTextColor(mediumGray[0], mediumGray[1], mediumGray[2]);
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(10);
+        doc.text("No transfer activity for this period.", 20, finalY + 30);
+      }
+      
+      // Professional footer
+      const footerY = pageHeight - 20;
+      doc.setDrawColor(steelBlue[0], steelBlue[1], steelBlue[2]);
+      doc.setLineWidth(0.5);
+      doc.line(20, footerY - 8, pageWidth - 20, footerY - 8);
+      
+      doc.setTextColor(mediumGray[0], mediumGray[1], mediumGray[2]);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text("SUPPTRAQ Professional Inventory Management System", 20, footerY);
+      
+      doc.setFont("helvetica", "bold");
+      doc.text(`Page 1`, pageWidth - 20, footerY, { align: "right" });
+      
+      // Add subtle company details
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(mediumGray[0], mediumGray[1], mediumGray[2]);
+      const currentDate = new Date().toISOString().split('T')[0];
+      doc.text(`Confidential Business Report • ${currentDate}`, pageWidth / 2, footerY + 8, { align: "center" });
+
+      // Save the PDF
+      const fileName = `SUPPTRAQ-Ordering-Report-${reportStore}-${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+      
+      setIsGeneratingPDF(false);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      alert("Failed to generate PDF. Please check console for details.");
+      setIsGeneratingPDF(false);
+    }
+  }, [reportStore, inventoryData, reportUploadId, editedLines, removedLines]);
 
   return (
     <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 min-h-screen bg-gradient-to-br from-background via-background to-background/50">
@@ -233,38 +649,16 @@ export default function InventoryPage() {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="flex items-center justify-between"
       >
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2 glow-text">
-            Inventory Management
-          </h1>
-          <p className="text-muted-foreground">
-            Monitor stock levels, manage transfers, and track vendor performance.
-          </p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Syncing...' : 'Sync'}
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleExport}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-        </div>
+        <h1 className="text-3xl font-bold text-foreground mb-2 glow-text">
+          Inventory Management
+        </h1>
+        <p className="text-muted-foreground">
+          Review inventory and generate ordering reports by upload
+        </p>
       </motion.div>
 
-      {/* Filters */}
+      {/* Filter Panel */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -278,8 +672,8 @@ export default function InventoryPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <div>
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex-1 min-w-[200px]">
                 <label className="text-sm font-medium text-foreground mb-2 block">
                   Store
                 </label>
@@ -290,12 +684,12 @@ export default function InventoryPage() {
                   <SelectContent>
                     <SelectItem value="all">All stores</SelectItem>
                     {inventoryFilters?.stores.map(store => (
-                      <SelectItem key={store} value={store}>Store {store}</SelectItem>
+                      <SelectItem key={store} value={store}>{store}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div>
+              <div className="flex-1 min-w-[200px]">
                 <label className="text-sm font-medium text-foreground mb-2 block">
                   Vendor
                 </label>
@@ -306,240 +700,349 @@ export default function InventoryPage() {
                   <SelectContent>
                     <SelectItem value="all">All vendors</SelectItem>
                     {inventoryFilters?.vendors.map(vendor => (
-                      <SelectItem key={vendor.code} value={vendor.code}>{vendor.name}</SelectItem>
+                      <SelectItem key={vendor} value={vendor}>{vendor}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div>
+              <div className="flex-1 min-w-[200px]">
                 <label className="text-sm font-medium text-foreground mb-2 block">
-                  Stock Level
+                  Upload
                 </label>
-                <Select value={filters.stockLevel} onValueChange={(value) => setFilters(prev => ({ ...prev, stockLevel: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All levels" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All levels</SelectItem>
-                    <SelectItem value="out">Out of Stock</SelectItem>
-                    <SelectItem value="low">Low Stock</SelectItem>
-                    <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="overstock">Overstock</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">
-                  Search
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground/50 h-4 w-4" />
-                  <Input 
-                    placeholder="Product name, SKU..." 
-                    className="pl-10"
-                    value={filters.search}
-                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                  />
+                <div className="flex gap-2">
+                  <Select 
+                    value={filters.uploadId} 
+                    onValueChange={(value) => {
+                      setFilters(prev => ({ ...prev, uploadId: value }));
+                      // Reset report store when upload changes
+                      setReportStore("");
+                      setEditedLines(new Map());
+                      setRemovedLines(new Set());
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All uploads" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All uploads</SelectItem>
+                      {inventoryFilters?.uploads
+                        .filter(upload => !filters.vendor || filters.vendor === "all" || upload.vendor === filters.vendor)
+                        .map(upload => (
+                          <SelectItem key={upload.id} value={upload.id}>
+                            {upload.label}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  {filters.uploadId !== "all" && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDeleteUpload(filters.uploadId)}
+                      className="px-3"
+                      title="Delete this upload and all its data"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
-              </div>
-              <div className="flex items-end">
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => setFilters({
-                    storeId: "all",
-                    vendor: "all", 
-                    stockLevel: "all",
-                    search: ""
-                  })}
-                >
-                  Clear Filters
-                </Button>
               </div>
             </div>
           </CardContent>
         </Card>
       </motion.div>
 
-      {/* Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard
-          title="Total Items"
-          value={inventoryData.metrics.totalItems.toLocaleString()}
-          change="Across all stores"
-          changeType="neutral"
-          icon={Package}
-          delay={0.2}
-        />
-        <MetricCard
-          title="Inventory Value"
-          value={`$${Math.round(inventoryData.metrics.totalValue).toLocaleString()}`}
-          change="+3.2% from last month"
-          changeType="positive"
-          icon={TrendingDown}
-          delay={0.25}
-        />
-        <MetricCard
-          title="Low Stock Items"
-          value={inventoryData.metrics.lowStockCount.toString()}
-          change={inventoryData.metrics.lowStockCount > 0 ? "Needs attention" : "All good"}
-          changeType={inventoryData.metrics.lowStockCount > 0 ? "negative" : "positive"}
-          icon={AlertTriangle}
-          delay={0.3}
-          onClick={() => setFilters(prev => ({ ...prev, stockLevel: "low" }))}
-        />
-        <MetricCard
-          title="Transfer Suggestions"
-          value={inventoryData.metrics.transferCount.toString()}
-          change="Optimization opportunities"
-          changeType="neutral"
-          icon={ArrowUpDown}
-          delay={0.35}
-        />
-      </div>
-
-      {/* Action Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Action Items */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.5 }}
-          className="group"
-        >
-          <Card className="glow-card card-shadow hover:shadow-2xl hover:shadow-amber-500/20 transition-all duration-300 hover:scale-[1.02] border-border/50 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-foreground">
-                <AlertTriangle className="h-5 w-5 text-amber-400" />
-                Action Required
-              </CardTitle>
-              <CardDescription className="text-muted-foreground">Items needing immediate attention</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {inventoryData.reorderSuggestions.slice(0, 5).map((item, index) => (
-                <div key={`${item.item_number}-${item.store_id}`} className="flex items-center justify-between p-3 rounded-xl border border-border/50 hover:border-amber-500/30 transition-all duration-300 hover:scale-[1.02] bg-gradient-to-r from-card/50 to-card/30 backdrop-blur-sm">
-                  <div>
-                    <p className="font-medium text-sm text-foreground">{item.product_name}</p>
-                    <p className="text-xs text-muted-foreground">Store {item.store_id} • {item.qty_on_hand} left</p>
-                  </div>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => handleReorder(item)}
-                  >
-                    Reorder
-                  </Button>
-                </div>
-              ))}
-              {inventoryData.reorderSuggestions.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No reorders needed</p>
-                  <p className="text-sm">All inventory levels are healthy</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Store Performance */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.5 }}
-          className="group"
-        >
-          <Card className="glow-card card-shadow hover:shadow-2xl hover:shadow-primary/20 transition-all duration-300 hover:scale-[1.02] border-border/50 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-foreground">
-                <Store className="h-5 w-5 text-primary" />
-                Store Health
-              </CardTitle>
-              <CardDescription className="text-muted-foreground">Inventory status by location</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {inventoryData.storeStats.map((store) => (
-                <div key={store.storeId} className="flex items-center justify-between p-3 rounded-xl border border-border/50 hover:border-primary/30 transition-all duration-300 hover:scale-[1.02] bg-gradient-to-r from-card/50 to-card/30 backdrop-blur-sm">
-                  <div>
-                    <p className="font-medium text-sm text-foreground">Store {store.storeId}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {store.totalItems} items • ${Math.round(store.totalValue).toLocaleString()} value
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {store.outOfStock > 0 && (
-                      <Badge variant="destructive" className="text-xs">{store.outOfStock}</Badge>
-                    )}
-                    {store.lowStock > 0 && (
-                      <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
-                        {store.lowStock}
-                      </Badge>
-                    )}
-                    <ArrowRight className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors duration-200" />
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Transfer Activity */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6, duration: 0.5 }}
-          className="group"
-        >
-          <Card className="glow-card card-shadow hover:shadow-2xl hover:shadow-accent/20 transition-all duration-300 hover:scale-[1.02] border-border/50 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-foreground">
-                <ArrowUpDown className="h-5 w-5 text-accent" />
-                Recent Transfers
-              </CardTitle>
-              <CardDescription className="text-muted-foreground">Latest inter-store movements</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {transferLogs?.slice(0, 5).map((transfer) => (
-                <div key={`${transfer.item_number}-${transfer.from_store_id}-${transfer.to_store_id}`} className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium text-sm text-foreground">{transfer.product_name}</p>
-                    <span className="text-xs text-muted-foreground">{transfer.qty} units</span>
-                  </div>
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    <span>Store {transfer.from_store_id}</span>
-                    <ArrowRight className="h-3 w-3 mx-2" />
-                    <span>Store {transfer.to_store_id}</span>
-                  </div>
-                </div>
-              ))}
-              {(!transferLogs || transferLogs.length === 0) && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <ArrowUpDown className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No recent transfers</p>
-                  <p className="text-sm">No inter-store movements yet</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* Inventory Table */}
+      {/* Upload Overview Panel */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.7, duration: 0.5 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
       >
         <Card className="glow-card card-shadow border-border/50 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-foreground">Inventory Items</CardTitle>
-            <CardDescription className="text-muted-foreground">Current stock levels across all locations</CardDescription>
+            <CardTitle className="flex items-center gap-2 text-foreground">
+              <Package className="h-5 w-5 text-primary" />
+              Upload Overview
+            </CardTitle>
+            <CardDescription>
+              {filters.uploadId !== "all" || filters.storeId !== "all" 
+                ? "Filtered statistics" 
+                : "Statistics across all uploads and stores"}
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <InventoryTable items={inventoryData.inventoryItems} />
+          <CardContent className="space-y-6">
+            {/* Total Transfers */}
+            <div className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Transfers</p>
+                <p className="text-2xl font-bold text-foreground">{uploadOverview?.transfersOutCount || 0}</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-primary/50" />
+            </div>
+
+            {/* Top 5 Sold Items */}
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
+                <div className="h-8 w-1 bg-gradient-to-b from-primary to-accent rounded-full" />
+                Top 5 Sold Items
+              </h3>
+              <div className="space-y-2">
+                {uploadOverview?.topSoldItems && uploadOverview.topSoldItems.length > 0 ? (
+                  uploadOverview.topSoldItems.map((item, index) => (
+                    <motion.div
+                      key={item.item_number}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium text-foreground">{item.product_name}</p>
+                        <p className="text-sm text-muted-foreground">#{item.item_number}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-foreground">{item.qty_sold} units</p>
+                        <p className="text-sm text-primary">${item.retail_total.toFixed(2)}</p>
+                      </div>
+                    </motion.div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No sales data available</p>
+                    <p className="text-sm">Select filters to view top sold items</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </CardContent>
         </Card>
       </motion.div>
-      </div>
+
+      {/* Create Report Panel */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.5 }}
+      >
+        <Card className="glow-card card-shadow border-border/50 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-foreground">
+              <FileText className="h-5 w-5 text-primary" />
+              Create Report
+            </CardTitle>
+            <CardDescription>Select an upload and store to edit quantities and generate ordering report</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Upload and Store Selection for Report */}
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Select Upload *
+                </label>
+                <Select 
+                  value={reportUploadId} 
+                  onValueChange={(value) => {
+                    setReportUploadId(value);
+                    // Reset report store when upload changes
+                    setReportStore("");
+                    setEditedLines(new Map());
+                    setRemovedLines(new Set());
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose upload" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {inventoryFilters?.uploads.map(upload => (
+                      <SelectItem key={upload.id} value={upload.id}>
+                        {upload.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1 min-w-[200px]">
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Select Store for Report *
+                </label>
+                <Select value={reportStore} onValueChange={setReportStore}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose store" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {inventoryFilters?.stores.map(store => (
+                      <SelectItem key={store} value={store}>{store}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button 
+                onClick={generateReport}
+                disabled={!reportStore || !reportUploadId || isGeneratingPDF}
+                className="bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {isGeneratingPDF ? "Generating..." : "Generate Report"}
+              </Button>
+            </div>
+
+              {/* Summary Info */}
+              {inventoryData && paginatedData.totalItems > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="bg-muted/20 rounded-lg p-3">
+                    <p className="text-sm text-muted-foreground">Total Items</p>
+                    <p className="text-2xl font-bold text-foreground">{paginatedData.totalItems}</p>
+                  </div>
+                  <div className="bg-muted/20 rounded-lg p-3">
+                    <p className="text-sm text-muted-foreground">Items with Edits</p>
+                    <p className="text-2xl font-bold text-primary">{editedLines.size}</p>
+                  </div>
+                  <div className="bg-muted/20 rounded-lg p-3">
+                    <p className="text-sm text-muted-foreground">Removed Items</p>
+                    <p className="text-2xl font-bold text-destructive">{removedLines.size}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Editable Table */}
+              {inventoryData ? (
+                <div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left py-3 px-4 font-medium text-foreground">Item #</th>
+                          <th className="text-left py-3 px-4 font-medium text-foreground">Product</th>
+                          <th className="text-center py-3 px-4 font-medium text-foreground">Qty Sold</th>
+                          <th className="text-center py-3 px-4 font-medium text-foreground">On Hand</th>
+                          <th className="text-center py-3 px-4 font-medium text-foreground">Transfer In</th>
+                          <th className="text-center py-3 px-4 font-medium text-foreground">Transfer Out</th>
+                          <th className="text-center py-3 px-4 font-medium text-foreground">Reorder</th>
+                          <th className="text-center py-3 px-4 font-medium text-foreground">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tableRows}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Pagination Controls */}
+              {paginatedData.totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 px-2">
+                  <div className="text-sm text-muted-foreground">
+                    <div>Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, paginatedData.totalItems)} of {paginatedData.totalItems} items</div>
+                    <div className="text-xs opacity-75 mt-1">Use ← → arrow keys to navigate pages</div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    
+                    <div className="flex items-center space-x-1">
+                      {Array.from({ length: Math.min(5, paginatedData.totalPages) }, (_, i) => {
+                        let pageNum;
+                        if (paginatedData.totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= paginatedData.totalPages - 2) {
+                          pageNum = paginatedData.totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+                        
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={currentPage === pageNum ? "default" : "outline"}
+                            size="sm"
+                            className="w-8 h-8 p-0"
+                            onClick={() => setCurrentPage(pageNum)}
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(paginatedData.totalPages, prev + 1))}
+                      disabled={currentPage === paginatedData.totalPages}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+                </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p className="text-lg mb-2">No data loaded</p>
+                <p className="text-sm">Select an upload above to view and edit inventory items</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Deletion Progress Dialog */}
+      <Dialog open={deletionProgress.showProgress} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Deleting Upload</DialogTitle>
+            <DialogDescription>
+              This may take a few moments depending on the amount of data.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Progress</span>
+                <span className="text-muted-foreground">
+                  {deletionProgress.isDeleting ? "In progress..." : "Complete"}
+                </span>
+              </div>
+              <Progress 
+                value={
+                  !deletionProgress.isDeleting ? 100 :
+                  deletionProgress.currentStep.includes("Estimating") ? 10 :
+                  deletionProgress.currentStep.includes("inventory lines") ? 
+                    Math.min(30 + (deletionProgress.deletedLines > 0 ? 30 : 0), 60) :
+                  deletionProgress.currentStep.includes("transfer logs") ? 
+                    Math.min(60 + (deletionProgress.deletedLogs > 0 ? 20 : 0), 80) :
+                  deletionProgress.currentStep.includes("Finalizing") ? 90 : 5
+                } 
+                className="h-2"
+              />
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {deletionProgress.currentStep}
+            </div>
+            {(deletionProgress.deletedLines > 0 || deletionProgress.deletedLogs > 0) && (
+              <div className="text-sm space-y-1">
+                {deletionProgress.deletedLines > 0 && (
+                  <div>Inventory lines deleted: {deletionProgress.deletedLines}</div>
+                )}
+                {deletionProgress.deletedLogs > 0 && (
+                  <div>Transfer logs deleted: {deletionProgress.deletedLogs}</div>
+                )}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

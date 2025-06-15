@@ -28,8 +28,11 @@ export default function TicketUpload() {
     const [errors, setErrors] = useState<any[]>([])
     const { userId } = useAuth()
     
-    // Use the new enhanced parser
-    const parseTicketsEnhanced = useMutation(api.ticketHistoryEnhanced.parseAndInsertTicketsEnhanced)
+    // Use the two-step approach: parse then insert in batches
+    const parseTickets = useMutation(api.ticketParserFixed.parseTicketsOnly)
+    const insertBatch = useMutation(api.ticketParserFixed.insertTicketsBatch)
+    const createUploadRecord = useMutation(api.ticketMutations.createTicketUploadRecord)
+    const triggerMetricsUpdate = useMutation(api.dashboardCache.triggerMetricsUpdate)
 
     const processFile = useCallback(async (rows: any[][]) => {
         try {
@@ -37,11 +40,57 @@ export default function TicketUpload() {
                 throw new Error('User not authenticated')
             }
 
-            const CHUNK_SIZE = 5000 // Process 5000 rows at a time (well under 8192 limit)
             const totalRows = rows.length
-            let processedRows = 0
+            toast.info(`Processing ${totalRows.toLocaleString()} rows...`, { id: 'processing' })
+            setProgress(10)
+
+            // Step 1: Parse with larger, safer chunks
+            const PARSE_CHUNK_SIZE = 8000 // Use larger chunks
+            const allEntries: any[] = []
+            let totalTickets = 0
+            const allErrors: any[] = []
+            let dynamicProductNames: Record<string, string> = {}
+
+            let chunkNum = 0
+            for (let i = 0; i < totalRows; i += PARSE_CHUNK_SIZE) {
+                const chunkEndIndex = Math.min(i + PARSE_CHUNK_SIZE, totalRows)
+                const chunk = rows.slice(i, chunkEndIndex)
+                chunkNum++
+                const totalChunks = Math.ceil(totalRows / PARSE_CHUNK_SIZE)
+                
+                const parseProgress = 10 + Math.round((i / totalRows) * 30)
+                setProgress(parseProgress)
+                toast.info(`Parsing chunk ${chunkNum}/${totalChunks}...`, { id: 'processing' })
+
+                const parseResponse = await parseTickets({
+                    user_id: userId,
+                    rows: chunk,
+                    dynamicProductNames
+                })
+
+                if (parseResponse.status !== 'success') {
+                    throw new Error(`Parsing chunk ${chunkNum} failed: ${parseResponse.message}`)
+                }
+
+                allEntries.push(...(parseResponse.entries || []))
+                totalTickets += (parseResponse.totalTickets || 0)
+                allErrors.push(...(parseResponse.errors || []))
+                
+                // Update dynamic product names for next chunk
+                if (parseResponse.newProductNames) {
+                    dynamicProductNames = { ...dynamicProductNames, ...parseResponse.newProductNames }
+                }
+            }
+
+            toast.info(`Parsed ${totalTickets} tickets (${allEntries.length} entries). Inserting...`, { id: 'processing' })
+            setProgress(45)
+
+            // Step 2: Insert in batches to stay under Convex limits
+            const BATCH_SIZE = 6000 // Stay well under 8192 limit
+            const totalBatches = Math.ceil(allEntries.length / BATCH_SIZE)
+            
             let totalStats = {
-                total: 0,
+                total: totalTickets,
                 inserted: 0,
                 failed: 0,
                 duplicates: 0,
@@ -51,73 +100,73 @@ export default function TicketUpload() {
                     gift_card_tickets: 0
                 }
             }
-            let allErrors: any[] = []
+            let finalErrors: any[] = [...allErrors] // Include parsing errors
 
-            toast.info(`Processing ${totalRows.toLocaleString()} rows in chunks...`, { id: 'processing' })
-
-            // Process in chunks
-            for (let i = 0; i < totalRows; i += CHUNK_SIZE) {
-                const chunk = rows.slice(i, Math.min(i + CHUNK_SIZE, totalRows))
-                const chunkNum = Math.floor(i / CHUNK_SIZE) + 1
-                const totalChunks = Math.ceil(totalRows / CHUNK_SIZE)
+            for (let i = 0; i < allEntries.length; i += BATCH_SIZE) {
+                const batch = allEntries.slice(i, Math.min(i + BATCH_SIZE, allEntries.length))
+                const batchNumber = Math.floor(i / BATCH_SIZE) + 1
                 
-                // Update progress
-                const progressPercent = Math.round((i / totalRows) * 100)
-                setProgress(progressPercent)
-                toast.info(`Processing chunk ${chunkNum}/${totalChunks} (${progressPercent}%)`, { id: 'processing' })
+                const progress = 45 + Math.round((i / allEntries.length) * 55)
+                setProgress(progress)
+                toast.info(`Inserting batch ${batchNumber}/${totalBatches}...`, { id: 'processing' })
 
-                try {
-                    const response = await parseTicketsEnhanced({
-                        user_id: userId,
-                        rows: chunk,
-                        options: {
-                            batchSize: 100,
-                            validateBeforeInsert: true,
-                            skipDuplicateCheck: i > 0, // Skip duplicate check after first chunk for performance
-                            dryRun: false
-                        }
-                    })
-
-                    if (response.status === 'success' && response.stats) {
-                        // Accumulate stats
-                        totalStats.total += response.stats.total
-                        totalStats.inserted += response.stats.inserted
-                        totalStats.failed += response.stats.failed
-                        totalStats.duplicates += response.stats.duplicates
-                        totalStats.byTable.ticket_history += response.stats.byTable.ticket_history
-                        totalStats.byTable.return_tickets += response.stats.byTable.return_tickets
-                        totalStats.byTable.gift_card_tickets += response.stats.byTable.gift_card_tickets
-
-                        // Collect errors
-                        if (response.failed) {
-                            allErrors.push(...response.failed)
-                        }
+                const insertResponse = await insertBatch({
+                    entries: batch,
+                    batchInfo: {
+                        batchNumber,
+                        totalBatches
                     }
+                })
 
-                    processedRows += chunk.length
-                } catch (chunkError) {
-                    console.error(`Error processing chunk ${chunkNum}:`, chunkError)
-                    allErrors.push({
-                        chunk: chunkNum,
-                        error: chunkError instanceof Error ? chunkError.message : 'Unknown error'
-                    })
+                if (insertResponse.status === 'success') {
+                    totalStats.inserted += insertResponse.stats.inserted
+                    totalStats.failed += insertResponse.stats.failed
+                    totalStats.byTable.ticket_history += insertResponse.stats.byTable.ticket_history
+                    totalStats.byTable.return_tickets += insertResponse.stats.byTable.return_tickets
+                    totalStats.byTable.gift_card_tickets += insertResponse.stats.byTable.gift_card_tickets
+                    finalErrors.push(...insertResponse.errors)
+                } else {
+                    throw new Error(`Batch ${batchNumber} failed`)
                 }
             }
 
             setProgress(100)
 
+            // Create upload record for dashboard
+            try {
+                const storesAffected = Array.from(new Set(allEntries.map(e => e.store_id).filter(Boolean)))
+                await createUploadRecord({
+                    user_id: userId,
+                    upload_name: `Ticket Upload - ${new Date().toLocaleDateString()}`,
+                    total_tickets: totalTickets,
+                    total_entries: totalStats.inserted,
+                    stores_affected: storesAffected,
+                    status: finalErrors.length > 0 ? 'partial' : 'success'
+                })
+            } catch (error) {
+                console.warn('Failed to create upload record:', error)
+            }
+
+            // Trigger dashboard metrics recalculation
+            try {
+                await triggerMetricsUpdate({ userId })
+                console.log('✅ Triggered dashboard metrics update')
+            } catch (error) {
+                console.warn('Failed to trigger metrics update:', error)
+            }
+
             return {
                 status: 'success' as const,
                 stats: totalStats,
-                failed: allErrors.slice(0, 20), // Return first 20 errors
-                message: `Processed ${totalStats.inserted} tickets from ${totalRows.toLocaleString()} rows`
+                errors: finalErrors,
+                message: `Successfully processed ${totalStats.inserted} entries from ${totalTickets} tickets`
             }
 
         } catch (err) {
             console.error('Processing error:', err)
             throw err
         }
-    }, [parseTicketsEnhanced, userId])
+    }, [parseTickets, insertBatch, createUploadRecord, triggerMetricsUpdate, userId])
 
     const onDrop = useCallback((acceptedFiles: File[]) => {
         if (!acceptedFiles[0]) {
@@ -185,8 +234,8 @@ export default function TicketUpload() {
                                 )
                                 
                                 // Store errors if any
-                                if (response.failed && response.failed.length > 0) {
-                                    setErrors(response.failed)
+                                if (response.errors && response.errors.length > 0) {
+                                    setErrors(response.errors)
                                 }
                             } else {
                                 throw new Error(response.message || 'Processing failed')

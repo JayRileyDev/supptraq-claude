@@ -49,14 +49,8 @@ export const links: Route.LinksFunction = () => [
     as: "image",
     type: "image/png",
   },
-  {
-    rel: "preload",
-    href: "/favicon.png", 
-    as: "image",
-    type: "image/png",
-  },
   
-  // Icon
+  // Icon (favicon will be preloaded automatically by the browser)
   {
     rel: "icon",
     type: "image/png",
@@ -66,13 +60,13 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
-        {/* Prevent FOUC (Flash of Unstyled Content) by setting dark mode immediately */}
+        {/* Prevent FOUC (Flash of Unstyled Content) by setting theme before React hydrates */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -82,6 +76,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
                   var shouldBeDark = theme === 'dark' || (theme === 'system' && systemDark) || (!theme && systemDark);
                   
+                  document.documentElement.classList.remove('dark', 'light');
                   if (shouldBeDark) {
                     document.documentElement.classList.add('dark');
                   } else {
@@ -89,6 +84,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   }
                 } catch (e) {
                   // Fallback to dark mode if there's any error
+                  document.documentElement.classList.remove('light');
                   document.documentElement.classList.add('dark');
                 }
               })();

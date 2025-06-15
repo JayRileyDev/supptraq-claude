@@ -34,8 +34,8 @@ export const getRepPerformanceData = query({
     const includeReturns = args.includeReturns !== false;
     const includeGiftCards = args.includeGiftCards !== false;
 
-    // Fetch sales data
-    let ticketHistory = await ctx.db
+    // MAJOR OPTIMIZATION: Apply filters at database level and limit data
+    let ticketQuery = ctx.db
       .query("ticket_history")
       .filter((q) => 
         q.and(
@@ -43,18 +43,19 @@ export const getRepPerformanceData = query({
           q.gte(q.field("sale_date"), startDate.toISOString()),
           q.lte(q.field("sale_date"), endDate.toISOString())
         )
-      )
-      .collect();
+      );
 
-    // Apply store filter
+    // Apply store filter at query level
     if (args.storeId && args.storeId !== "all") {
-      ticketHistory = ticketHistory.filter(sale => sale.store_id === args.storeId);
+      ticketQuery = ticketQuery.filter((q) => q.eq(q.field("store_id"), args.storeId));
     }
 
-    // Fetch returns if included
+    const ticketHistory = await ticketQuery.take(2000); // Limit for performance
+
+    // MAJOR OPTIMIZATION: Apply filters at database level for returns
     let returnTickets: any[] = [];
     if (includeReturns) {
-      returnTickets = await ctx.db
+      let returnsQuery = ctx.db
         .query("return_tickets")
         .filter((q) => 
           q.and(
@@ -62,18 +63,19 @@ export const getRepPerformanceData = query({
             q.gte(q.field("sale_date"), startDate.toISOString()),
             q.lte(q.field("sale_date"), endDate.toISOString())
           )
-        )
-        .collect();
+        );
 
       if (args.storeId && args.storeId !== "all") {
-        returnTickets = returnTickets.filter(ret => ret.store_id === args.storeId);
+        returnsQuery = returnsQuery.filter((q) => q.eq(q.field("store_id"), args.storeId));
       }
+
+      returnTickets = await returnsQuery.take(500); // Limit for performance
     }
 
-    // Fetch gift cards if included
+    // MAJOR OPTIMIZATION: Apply filters at database level for gift cards
     let giftCardTickets: any[] = [];
     if (includeGiftCards) {
-      giftCardTickets = await ctx.db
+      let giftCardsQuery = ctx.db
         .query("gift_card_tickets")
         .filter((q) => 
           q.and(
@@ -81,18 +83,20 @@ export const getRepPerformanceData = query({
             q.gte(q.field("sale_date"), startDate.toISOString()),
             q.lte(q.field("sale_date"), endDate.toISOString())
           )
-        )
-        .collect();
+        );
 
       if (args.storeId && args.storeId !== "all") {
-        giftCardTickets = giftCardTickets.filter(gc => gc.store_id === args.storeId);
+        giftCardsQuery = giftCardsQuery.filter((q) => q.eq(q.field("store_id"), args.storeId));
       }
+
+      giftCardTickets = await giftCardsQuery.take(500); // Limit for performance
     }
 
-    // Get sales rep metadata
+    // MAJOR OPTIMIZATION: Limit sales rep metadata fetch
     const salesReps = await ctx.db
       .query("sales_reps")
-      .collect();
+      .filter((q) => q.eq(q.field("user"), args.userId))
+      .take(100); // Limit for performance
 
     // Create rep lookup map
     const repMetadata = new Map();
@@ -259,8 +263,8 @@ export const getRepPerformanceData = query({
       filteredReps = filteredReps.slice(-10).reverse();
     }
 
-    // Get previous period data for trends
-    const previousTicketHistory = await ctx.db
+    // MAJOR OPTIMIZATION: Limit previous period data fetch
+    let previousQuery = ctx.db
       .query("ticket_history")
       .filter((q) => 
         q.and(
@@ -268,8 +272,14 @@ export const getRepPerformanceData = query({
           q.gte(q.field("sale_date"), previousStartDate.toISOString()),
           q.lte(q.field("sale_date"), previousEndDate.toISOString())
         )
-      )
-      .collect();
+      );
+
+    // Apply same store filter to previous period
+    if (args.storeId && args.storeId !== "all") {
+      previousQuery = previousQuery.filter((q) => q.eq(q.field("store_id"), args.storeId));
+    }
+
+    const previousTicketHistory = await previousQuery.take(1000); // Limit for performance
 
     // Calculate previous period metrics for each rep
     const previousRepData = new Map();
@@ -348,11 +358,11 @@ export const getRepFilters = query({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
     try {
-    // Get all unique stores and reps from ticket history
+    // MAJOR OPTIMIZATION: Limit ticket history for filter generation
     const tickets = await ctx.db
       .query("ticket_history")
       .filter((q) => q.eq(q.field("user_id"), args.userId))
-      .collect();
+      .take(1000); // Only need sample to get unique values
 
     const storeSet = new Set<string>();
     const repSet = new Set<string>();
@@ -365,10 +375,11 @@ export const getRepFilters = query({
     // Get store metadata if available
     const storeList = Array.from(storeSet).sort();
     
-    // Get rep metadata
+    // MAJOR OPTIMIZATION: Limit sales rep metadata fetch
     const salesReps = await ctx.db
       .query("sales_reps")
-      .collect();
+      .filter((q) => q.eq(q.field("user"), args.userId))
+      .take(100); // Limit for performance
 
 
     const repList = Array.from(repSet).map(repName => ({

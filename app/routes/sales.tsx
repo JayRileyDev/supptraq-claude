@@ -1,7 +1,7 @@
 import { useQuery } from "convex/react";
 // Removed unused imports - handled by dashboard layout
 import { useUser } from "@clerk/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   DollarSign, TrendingUp, ShoppingCart, Users, Award, AlertTriangle,
@@ -35,6 +35,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "~/components/ui/tooltip";
+import { ModernSalesFilter } from "~/components/sales/modern-sales-filter";
 
 // Loader removed - authentication and subscription checks handled by dashboard layout
 
@@ -609,15 +610,33 @@ export default function SalesPage() {
   const { user } = useUser();
   const userId = user?.id;
 
-  // Filter states
-  const [dateRange, setDateRange] = useState<{ start: string; end: string } | undefined>(undefined);
-  const [selectedStore, setSelectedStore] = useState("all");
-  const [selectedRep, setSelectedRep] = useState("all");
-  const [performanceFilter, setPerformanceFilter] = useState("all");
-  const [minTickets, setMinTickets] = useState<number | undefined>(undefined);
-  const [includeReturns, setIncludeReturns] = useState(true);
-  const [includeGiftCards, setIncludeGiftCards] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
+  // Store-level filters for top 8 metric cards
+  const [storeFilters, setStoreFilters] = useState<{
+    dateRange: { from: Date | undefined; to?: Date | undefined } | undefined;
+    storeId: string;
+    includeReturns: boolean;
+  }>({
+    dateRange: undefined,
+    storeId: "all",
+    includeReturns: true
+  });
+
+  // Rep-level filters for performance data below (separate from store filters)
+  const [repFilters, setRepFilters] = useState<{
+    dateRange: { from: Date | undefined; to?: Date | undefined } | undefined;
+    storeId: string;
+    salesRepId?: string; 
+    searchQuery?: string;
+    includeReturns: boolean;
+  }>({
+    dateRange: undefined,
+    storeId: "all",
+    salesRepId: "all", 
+    searchQuery: "",
+    includeReturns: true
+  });
+
+  // Keep sorting separate as it's for the rep list display, not the metrics
   const [sortBy, setSortBy] = useState<"revenue" | "tickets" | "gp">("revenue");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
@@ -625,38 +644,542 @@ export default function SalesPage() {
   const [selectedRepForDetail, setSelectedRepForDetail] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("overview");
 
-  // Queries
-  const filters = useQuery(
-    api.salesRepQueries.getRepFilters,
+  // Queries - use cached filter options
+  const filterData = useQuery(
+    api.salesCache.getSalesFilterOptions,
     userId ? { userId } : "skip"
   );
 
-  const repData = useQuery(
-    api.salesRepQueries.getRepPerformanceData,
-    userId ? {
-      userId,
-      dateRange,
-      storeId: selectedStore,
-      salesRep: selectedRep,
-      performanceFilter,
-      minTickets,
-      includeReturns,
-      includeGiftCards
-    } : "skip"
+  // Filter data is already in the correct format from the backend
+  const transformedFilterData = filterData || null;
+
+  // Convert store filters to query format for metrics
+  const storeQueryFilters = useMemo(() => {
+    return {
+      dateRange: (storeFilters.dateRange && storeFilters.dateRange.from && storeFilters.dateRange.to) ? {
+        start: storeFilters.dateRange.from.toISOString(),
+        end: storeFilters.dateRange.to.toISOString()
+      } : undefined,
+      storeId: storeFilters.storeId,
+      includeReturns: storeFilters.includeReturns,
+      // Store-level only - no rep filtering
+      salesRep: "all",
+      performanceFilter: "all",
+      minTickets: undefined,
+      includeGiftCards: true
+    };
+  }, [storeFilters]);
+
+  // Convert rep filters to query format for rep performance data
+  const repQueryFilters = useMemo(() => {
+    return {
+      dateRange: (repFilters.dateRange && repFilters.dateRange.from && repFilters.dateRange.to) ? {
+        start: repFilters.dateRange.from.toISOString(),
+        end: repFilters.dateRange.to.toISOString()
+      } : undefined,
+      storeId: repFilters.storeId,
+      salesRep: repFilters.searchQuery || 
+                (repFilters.salesRepId && repFilters.salesRepId !== "all" ? repFilters.salesRepId : "all"),
+      includeReturns: repFilters.includeReturns,
+      performanceFilter: "all",
+      minTickets: undefined,
+      includeGiftCards: true
+    };
+  }, [repFilters]);
+
+  // Get fresh sales data - use a fixed large range and filter in React
+  const rawSalesData = useQuery(
+    api.salesCache.getSalesData,
+    userId ? { userId, dateRange: 365 } : "skip" // Always get 1 year of data
   );
 
-  // Process and filter reps
+  // Process store-level data for the top 8 metric cards
+  const storeMetrics = useMemo(() => {
+    if (!rawSalesData || !rawSalesData.tickets) {
+      return {
+        summary: { totalRevenue: 0, totalTickets: 0, totalReturns: 0, avgTicketSize: 0, avgGrossProfitPercent: 0, totalGrossProfitDollars: 0, returnRate: 0, activeReps: 0 }
+      };
+    }
+
+    // Apply date range filter if specified
+    let filteredTickets = rawSalesData.tickets;
+    let filteredReturns = rawSalesData.returns || [];
+    let filteredGiftCards = rawSalesData.giftCards || [];
+
+    if (storeFilters.dateRange?.from && storeFilters.dateRange?.to) {
+      const startDate = storeFilters.dateRange.from.toISOString();
+      const endDate = storeFilters.dateRange.to.toISOString();
+      
+      filteredTickets = filteredTickets.filter((ticket: any) => 
+        ticket.sale_date >= startDate && ticket.sale_date <= endDate
+      );
+      filteredReturns = filteredReturns.filter((ret: any) => 
+        ret.sale_date >= startDate && ret.sale_date <= endDate
+      );
+      filteredGiftCards = filteredGiftCards.filter((gc: any) => 
+        gc.sale_date >= startDate && gc.sale_date <= endDate
+      );
+    }
+
+    // Apply store filter
+    if (storeFilters.storeId !== "all") {
+      filteredTickets = filteredTickets.filter((ticket: any) => ticket.store_id === storeFilters.storeId);
+      filteredReturns = filteredReturns.filter((ret: any) => ret.store_id === storeFilters.storeId);
+      filteredGiftCards = filteredGiftCards.filter((gc: any) => gc.store_id === storeFilters.storeId);
+    }
+
+    // Apply returns filter
+    if (!storeFilters.includeReturns) {
+      filteredReturns = [];
+    }
+
+    // Calculate unique tickets and totals using same methodology as dashboard
+    const uniqueTickets = new Set<string>();
+    const uniqueReturnTickets = new Set<string>();
+    const ticketTotals = new Map<string, number>();
+    const ticketGrossProfitMap = new Map<string, number>();
+    const uniqueSalesReps = new Set<string>();
+
+    // Process regular sales tickets
+    const salesTicketSet = new Set<string>();
+    filteredTickets.forEach((ticket: any) => {
+      const ticketNum = ticket.ticket_number;
+      
+      if (ticketNum) {
+        uniqueTickets.add(ticketNum);
+        salesTicketSet.add(ticketNum);
+        
+        if (!ticketTotals.has(ticketNum)) {
+          const total = ticket.transaction_total || 0;
+          ticketTotals.set(ticketNum, total);
+        }
+        
+        if (ticket.gross_profit && !ticketGrossProfitMap.has(ticketNum)) {
+          const gp = parseFloat(ticket.gross_profit.toString().replace('%', ''));
+          if (!isNaN(gp)) {
+            ticketGrossProfitMap.set(ticketNum, gp);
+          }
+        }
+      }
+      
+      if (ticket.sales_rep) uniqueSalesReps.add(ticket.sales_rep);
+    });
+
+    // Process return tickets
+    filteredReturns.forEach((ret: any) => {
+      const ticketNum = ret.ticket_number;
+      
+      if (ticketNum) {
+        uniqueTickets.add(ticketNum);
+        uniqueReturnTickets.add(ticketNum);
+        
+        if (!salesTicketSet.has(ticketNum) && !ticketTotals.has(ticketNum)) {
+          const total = ret.transaction_total || 0;
+          ticketTotals.set(ticketNum, total);
+        }
+        
+        if (ret.gross_profit && !ticketGrossProfitMap.has(ticketNum)) {
+          const gp = parseFloat(ret.gross_profit.toString().replace('%', ''));
+          if (!isNaN(gp)) {
+            ticketGrossProfitMap.set(ticketNum, gp);
+          }
+        }
+      }
+      
+      if (ret.sales_rep) uniqueSalesReps.add(ret.sales_rep);
+    });
+
+    // Process gift cards
+    const giftCardsByTicket = new Map<string, number>();
+    filteredGiftCards.forEach((gc: any) => {
+      const ticketNum = gc.ticket_number;
+      
+      if (ticketNum) {
+        const giftAmount = gc.giftcard_amount || 0;
+        const current = giftCardsByTicket.get(ticketNum) || 0;
+        giftCardsByTicket.set(ticketNum, current + giftAmount);
+      }
+      
+      if (gc.sales_rep) uniqueSalesReps.add(gc.sales_rep);
+    });
+
+    giftCardsByTicket.forEach((totalGiftAmount, ticketNum) => {
+      uniqueTickets.add(ticketNum);
+      
+      if (!salesTicketSet.has(ticketNum) && !uniqueReturnTickets.has(ticketNum)) {
+        ticketTotals.set(ticketNum, totalGiftAmount);
+      }
+    });
+
+    // Calculate totals
+    let totalRevenue = 0;
+    ticketTotals.forEach(total => {
+      totalRevenue += total;
+    });
+
+    let totalGrossProfitPercent = 0;
+    ticketGrossProfitMap.forEach(gpPercent => {
+      totalGrossProfitPercent += gpPercent;
+    });
+
+    const avgGrossProfitPercent = uniqueTickets.size > 0 
+      ? totalGrossProfitPercent / uniqueTickets.size 
+      : 0;
+
+    let totalGrossProfitDollars = 0;
+    ticketGrossProfitMap.forEach((gpPercent, ticketNum) => {
+      const ticketTotal = ticketTotals.get(ticketNum) || 0;
+      totalGrossProfitDollars += ticketTotal * (gpPercent / 100);
+    });
+
+    const avgTicketSize = uniqueTickets.size > 0 ? totalRevenue / uniqueTickets.size : 0;
+    const returnRate = uniqueTickets.size > 0 ? (uniqueReturnTickets.size / uniqueTickets.size) * 100 : 0;
+    const totalReturns = filteredReturns.reduce((sum: number, r: any) => sum + Math.abs(r.transaction_total || 0), 0);
+    const totalGiftCards = Array.from(giftCardsByTicket.values()).reduce((sum, amount) => sum + amount, 0);
+
+    return {
+      summary: {
+        totalRevenue,
+        totalTickets: uniqueTickets.size,
+        totalReturns,
+        avgTicketSize,
+        avgGrossProfitPercent,
+        totalGrossProfitDollars,
+        returnRate,
+        activeReps: uniqueSalesReps.size,
+        totalGiftCards
+      }
+    };
+  }, [rawSalesData, storeFilters]);
+
+  // Process rep performance data (separate from store metrics)
+  const salesMetrics = useMemo(() => {
+    if (!rawSalesData || !rawSalesData.tickets) {
+      return {
+        reps: [],
+        summary: { totalRevenue: 0, totalTickets: 0, totalReturns: 0, avgTicketSize: 0 },
+        stores: [],
+        dailyData: []
+      };
+    }
+
+    // Apply date range filter if specified
+    let filteredTickets = rawSalesData.tickets;
+    let filteredReturns = rawSalesData.returns || [];
+    let filteredGiftCards = rawSalesData.giftCards || [];
+
+    if (repFilters.dateRange?.from && repFilters.dateRange?.to) {
+      const startDate = repFilters.dateRange.from.toISOString();
+      const endDate = repFilters.dateRange.to.toISOString();
+      
+      filteredTickets = filteredTickets.filter((ticket: any) => 
+        ticket.sale_date >= startDate && ticket.sale_date <= endDate
+      );
+      filteredReturns = filteredReturns.filter((ret: any) => 
+        ret.sale_date >= startDate && ret.sale_date <= endDate
+      );
+      filteredGiftCards = filteredGiftCards.filter((gc: any) => 
+        gc.sale_date >= startDate && gc.sale_date <= endDate
+      );
+    }
+
+    // Apply store filter
+    if (repFilters.storeId !== "all") {
+      filteredTickets = filteredTickets.filter((ticket: any) => ticket.store_id === repFilters.storeId);
+      filteredReturns = filteredReturns.filter((ret: any) => ret.store_id === repFilters.storeId);
+      filteredGiftCards = filteredGiftCards.filter((gc: any) => gc.store_id === repFilters.storeId);
+    }
+
+    // Apply returns filter
+    if (!repFilters.includeReturns) {
+      filteredReturns = [];
+    }
+
+    // Calculate unique tickets and totals using same methodology as dashboard
+    const uniqueTickets = new Set<string>();
+    const uniqueReturnTickets = new Set<string>();
+    const ticketTotals = new Map<string, number>();
+    const ticketGrossProfitMap = new Map<string, number>();
+    const repMetrics = new Map();
+
+    // Process regular sales tickets - group by ticket number like dashboard
+    const salesTicketSet = new Set<string>();
+    filteredTickets.forEach((ticket: any) => {
+      const ticketNum = ticket.ticket_number;
+      const repName = ticket.sales_rep || "Unknown";
+      
+      if (ticketNum) {
+        uniqueTickets.add(ticketNum);
+        salesTicketSet.add(ticketNum);
+        
+        // Only set total once per ticket (like dashboard)
+        if (!ticketTotals.has(ticketNum)) {
+          const total = ticket.transaction_total || 0;
+          ticketTotals.set(ticketNum, total);
+        }
+        
+        // Only set gross profit once per ticket (like dashboard)
+        if (ticket.gross_profit && !ticketGrossProfitMap.has(ticketNum)) {
+          const gp = parseFloat(ticket.gross_profit.toString().replace('%', ''));
+          if (!isNaN(gp)) {
+            ticketGrossProfitMap.set(ticketNum, gp);
+          }
+        }
+      }
+
+      // Track rep metrics
+      if (!repMetrics.has(repName)) {
+        repMetrics.set(repName, {
+          repName,
+          revenue: 0,
+          ticketCount: 0,
+          itemsSold: 0,
+          grossProfit: 0,
+          stores: new Set(),
+          topProducts: new Map(),
+          lastSaleDate: null,
+          firstSaleDate: null,
+          uniqueTickets: new Set()
+        });
+      }
+      
+      const rep = repMetrics.get(repName);
+      if (ticketNum) {
+        rep.uniqueTickets.add(ticketNum);
+      }
+      rep.itemsSold += ticket.qty_sold || 0;
+      rep.stores.add(ticket.store_id);
+      
+      // Track dates
+      const saleDate = ticket.sale_date;
+      if (!rep.lastSaleDate || saleDate > rep.lastSaleDate) {
+        rep.lastSaleDate = saleDate;
+      }
+      if (!rep.firstSaleDate || saleDate < rep.firstSaleDate) {
+        rep.firstSaleDate = saleDate;
+      }
+      
+      // Track top products
+      if (ticket.product_name && ticket.item_number) {
+        const productKey = `${ticket.item_number}-${ticket.product_name}`;
+        if (!rep.topProducts.has(productKey)) {
+          rep.topProducts.set(productKey, {
+            itemNumber: ticket.item_number,
+            productName: ticket.product_name,
+            revenue: 0,
+            quantity: 0,
+            transactions: 0
+          });
+        }
+        const product = rep.topProducts.get(productKey);
+        product.revenue += ticket.transaction_total || 0;
+        product.quantity += ticket.qty_sold || 0;
+        product.transactions += 1;
+      }
+    });
+
+    // Process return tickets
+    filteredReturns.forEach((ret: any) => {
+      const ticketNum = ret.ticket_number;
+      const repName = ret.sales_rep || "Unknown";
+      
+      if (ticketNum) {
+        uniqueTickets.add(ticketNum);
+        uniqueReturnTickets.add(ticketNum);
+        
+        // Only set total if not already set by sales ticket
+        if (!salesTicketSet.has(ticketNum) && !ticketTotals.has(ticketNum)) {
+          const total = ret.transaction_total || 0;
+          ticketTotals.set(ticketNum, total);
+        }
+        
+        if (ret.gross_profit && !ticketGrossProfitMap.has(ticketNum)) {
+          const gp = parseFloat(ret.gross_profit.toString().replace('%', ''));
+          if (!isNaN(gp)) {
+            ticketGrossProfitMap.set(ticketNum, gp);
+          }
+        }
+      }
+
+      // Track rep return metrics
+      if (repMetrics.has(repName)) {
+        const rep = repMetrics.get(repName);
+        rep.returnAmount = (rep.returnAmount || 0) + Math.abs(ret.transaction_total || 0);
+        rep.returnCount = (rep.returnCount || 0) + 1;
+      }
+    });
+
+    // Process gift cards
+    const giftCardsByTicket = new Map<string, number>();
+    filteredGiftCards.forEach((gc: any) => {
+      const ticketNum = gc.ticket_number;
+      const repName = gc.sales_rep || "Unknown";
+      
+      if (ticketNum) {
+        const giftAmount = gc.giftcard_amount || 0;
+        const current = giftCardsByTicket.get(ticketNum) || 0;
+        giftCardsByTicket.set(ticketNum, current + giftAmount);
+        
+        if (repMetrics.has(repName)) {
+          const rep = repMetrics.get(repName);
+          rep.giftCardRevenue = (rep.giftCardRevenue || 0) + giftAmount;
+          rep.giftCardCount = (rep.giftCardCount || 0) + 1;
+        }
+      }
+    });
+
+    // Add gift card tickets to unique tickets (like dashboard)
+    giftCardsByTicket.forEach((totalGiftAmount, ticketNum) => {
+      uniqueTickets.add(ticketNum);
+      
+      if (!salesTicketSet.has(ticketNum) && !uniqueReturnTickets.has(ticketNum)) {
+        ticketTotals.set(ticketNum, totalGiftAmount);
+      }
+    });
+
+    // Calculate total revenue from unique tickets (like dashboard)
+    let totalRevenue = 0;
+    ticketTotals.forEach(total => {
+      totalRevenue += total;
+    });
+
+    // Calculate total gross profit PERCENTAGES (like dashboard)
+    let totalGrossProfitPercent = 0;
+    ticketGrossProfitMap.forEach(gpPercent => {
+      totalGrossProfitPercent += gpPercent;
+    });
+
+    // Calculate average gross profit percentage (like dashboard)
+    const avgGrossProfitPercent = uniqueTickets.size > 0 
+      ? totalGrossProfitPercent / uniqueTickets.size 
+      : 0;
+
+    // Calculate total gross profit in dollars for display
+    let totalGrossProfitDollars = 0;
+    ticketGrossProfitMap.forEach((gpPercent, ticketNum) => {
+      const ticketTotal = ticketTotals.get(ticketNum) || 0;
+      totalGrossProfitDollars += ticketTotal * (gpPercent / 100);
+    });
+
+    // Calculate average ticket size based on unique tickets
+    const avgTicketSize = uniqueTickets.size > 0 ? totalRevenue / uniqueTickets.size : 0;
+
+    // Calculate return rate: unique return tickets / unique tickets
+    const returnRate = uniqueTickets.size > 0 ? (uniqueReturnTickets.size / uniqueTickets.size) * 100 : 0;
+
+    // Update rep metrics with revenue and ticket counts
+    repMetrics.forEach((rep: any) => {
+      rep.ticketCount = rep.uniqueTickets.size;
+      
+      // Calculate rep revenue from their tickets
+      rep.revenue = 0;
+      rep.grossProfit = 0;
+      rep.uniqueTickets.forEach((ticketNum: string) => {
+        const ticketTotal = ticketTotals.get(ticketNum) || 0;
+        rep.revenue += ticketTotal;
+        
+        const gpPercent = ticketGrossProfitMap.get(ticketNum) || 0;
+        rep.grossProfit += ticketTotal * (gpPercent / 100);
+      });
+      
+      // Calculate derived metrics
+      rep.avgTicketSize = rep.ticketCount > 0 ? rep.revenue / rep.ticketCount : 0;
+      rep.grossProfitMargin = rep.revenue > 0 ? (rep.grossProfit / rep.revenue) * 100 : 0;
+      rep.returnAmount = rep.returnAmount || 0;
+      rep.returnCount = rep.returnCount || 0;
+      rep.returnRate = (rep.ticketCount + rep.returnCount) > 0 
+        ? (rep.returnCount / (rep.ticketCount + rep.returnCount)) * 100 : 0;
+      rep.giftCardRevenue = rep.giftCardRevenue || 0;
+      rep.giftCardCount = rep.giftCardCount || 0;
+      
+      // Days since last sale
+      rep.daysSinceLastSale = rep.lastSaleDate 
+        ? Math.floor((Date.now() - new Date(rep.lastSaleDate).getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+      
+      // Convert stores set to count
+      rep.stores = rep.stores.size;
+      
+      // Convert top products to array
+      rep.topProducts = Array.from(rep.topProducts.values())
+        .sort((a: any, b: any) => b.revenue - a.revenue)
+        .slice(0, 5);
+      
+      // Add metadata
+      rep.metadata = { storeId: "Multiple" };
+      
+      // Remove the Set from the final object
+      delete rep.uniqueTickets;
+    });
+
+    // Convert to array
+    const reps = Array.from(repMetrics.values());
+
+    // Apply search/rep filtering
+    let filteredReps = reps;
+    if (repFilters.searchQuery && repFilters.searchQuery.trim()) {
+      const searchLower = repFilters.searchQuery.toLowerCase();
+      filteredReps = reps.filter((rep: any) => 
+        rep.repName?.toLowerCase().includes(searchLower)
+      );
+    } else if (repFilters.salesRepId && repFilters.salesRepId !== "all") {
+      filteredReps = reps.filter((rep: any) => 
+        rep.repName === repFilters.salesRepId
+      );
+    }
+
+    // Calculate total returns amount
+    const totalReturns = filteredReturns.reduce((sum: number, r: any) => sum + Math.abs(r.transaction_total || 0), 0);
+    
+    // Count active reps (reps with tickets in filtered data)
+    const activeReps = filteredReps.filter((rep: any) => rep.ticketCount > 0).length;
+
+    return {
+      reps: filteredReps,
+      allReps: reps, // Keep unfiltered for company metrics
+      summary: {
+        totalRevenue,
+        totalTickets: uniqueTickets.size,
+        totalReturns,
+        avgTicketSize,
+        avgGrossProfitPercent, // This matches dashboard's grossProfitPercent
+        totalGrossProfitDollars,
+        returnRate,
+        activeReps,
+        uniqueReps: filteredReps.length,
+        uniqueReturnTickets: uniqueReturnTickets.size,
+        dateRange: rawSalesData.summary?.dateRange || "No data"
+      }
+    };
+  }, [rawSalesData, repFilters]);
+
+  // Create repData in expected format
+  const repData = useMemo(() => {
+    if (!salesMetrics) return null;
+    
+    return {
+      reps: salesMetrics.reps,
+      companyMetrics: {
+        avgRevenue: (salesMetrics.allReps && salesMetrics.allReps.length > 0) ? salesMetrics.allReps.reduce((sum: number, rep: any) => sum + rep.revenue, 0) / salesMetrics.allReps.length : 0,
+        avgTickets: (salesMetrics.allReps && salesMetrics.allReps.length > 0) ? salesMetrics.allReps.reduce((sum: number, rep: any) => sum + rep.ticketCount, 0) / salesMetrics.allReps.length : 0,
+        avgTicketSize: (salesMetrics.allReps && salesMetrics.allReps.length > 0) ? salesMetrics.allReps.reduce((sum: number, rep: any) => sum + rep.avgTicketSize, 0) / salesMetrics.allReps.length : 0,
+        avgGPMargin: (salesMetrics.allReps && salesMetrics.allReps.length > 0) ? salesMetrics.allReps.reduce((sum: number, rep: any) => sum + rep.grossProfitMargin, 0) / salesMetrics.allReps.length : 0,
+        avgReturnRate: (salesMetrics.allReps && salesMetrics.allReps.length > 0) ? salesMetrics.allReps.reduce((sum: number, rep: any) => sum + rep.returnRate, 0) / salesMetrics.allReps.length : 0
+      },
+      dateRange: salesMetrics.summary?.dateRange ? {
+        start: salesMetrics.summary.dateRange.split(' - ')[0],
+        end: salesMetrics.summary.dateRange.split(' - ')[1]
+      } : undefined,
+      totalReps: salesMetrics.allReps?.length || 0,
+      filteredCount: salesMetrics.reps.length
+    };
+  }, [salesMetrics]);
+
+  // Process and filter reps for the display table
   const processedReps = useMemo(() => {
     if (!repData?.reps) return [];
 
     let reps = [...repData.reps];
-
-    // Apply search filter
-    if (searchQuery) {
-      reps = reps.filter(rep => 
-        rep.repName.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
 
     // Apply sorting
     reps.sort((a, b) => {
@@ -682,11 +1205,11 @@ export default function SalesPage() {
     });
 
     return reps;
-  }, [repData, searchQuery, sortBy, sortOrder]);
+  }, [repData, sortBy, sortOrder]);
 
-  // Calculate overall metrics
+  // Calculate overall metrics from store-level data (for top 8 cards)
   const overallMetrics = useMemo(() => {
-    if (!repData?.reps || repData.reps.length === 0) {
+    if (!storeMetrics?.summary) {
       return {
         totalRevenue: 0,
         totalTickets: 0,
@@ -694,48 +1217,28 @@ export default function SalesPage() {
         totalGrossProfit: 0,
         avgGPMargin: 0,
         totalReturns: 0,
-        avgReturnRate: 0,
+        returnRate: 0,
         totalGiftCards: 0,
         activeReps: 0
       };
     }
 
-    const reps = repData.reps;
-    const totalRevenue = reps.reduce((sum: number, rep: any) => sum + rep.revenue, 0);
-    const totalTickets = reps.reduce((sum: number, rep: any) => sum + rep.ticketCount, 0);
-    const totalGrossProfit = reps.reduce((sum: number, rep: any) => sum + rep.grossProfit, 0);
-    const totalReturns = reps.reduce((sum: number, rep: any) => sum + rep.returns, 0);
-    const totalGiftCards = reps.reduce((sum: number, rep: any) => sum + rep.giftCardRevenue, 0);
-    const activeReps = reps.filter((rep: any) => rep.ticketCount > 0).length;
+    const summary = storeMetrics.summary;
 
     return {
-      totalRevenue,
-      totalTickets,
-      avgTicketSize: totalTickets > 0 ? totalRevenue / totalTickets : 0,
-      totalGrossProfit,
-      avgGPMargin: totalRevenue > 0 ? (totalGrossProfit / totalRevenue) * 100 : 0,
-      totalReturns,
-      avgReturnRate: reps.reduce((sum: number, rep: any) => sum + rep.returnRate, 0) / reps.length,
-      totalGiftCards,
-      activeReps
+      totalRevenue: summary.totalRevenue || 0,
+      totalTickets: summary.totalTickets || 0,
+      avgTicketSize: summary.avgTicketSize || 0,
+      totalGrossProfit: summary.totalGrossProfitDollars || 0,
+      avgGPMargin: summary.avgGrossProfitPercent || 0,
+      totalReturns: summary.totalReturns || 0,
+      returnRate: summary.returnRate || 0,
+      totalGiftCards: summary.totalGiftCards || 0,
+      activeReps: summary.activeReps || 0
     };
-  }, [repData]);
+  }, [storeMetrics]);
 
-  const handleDateRangeSelect = (days: number | string) => {
-    const end = new Date();
-    const start = new Date();
-    
-    if (days === "ytd") {
-      start.setMonth(0, 1);
-    } else if (typeof days === "number") {
-      start.setDate(start.getDate() - days);
-    }
-    
-    setDateRange({
-      start: start.toISOString(),
-      end: end.toISOString()
-    });
-  };
+  // Date range handling moved to ModernSalesFilter component
 
   const handleExport = () => {
     if (!repData?.reps || repData.reps.length === 0) {
@@ -813,8 +1316,9 @@ export default function SalesPage() {
       
       // Generate filename with current date and filters
       const dateStr = new Date().toISOString().split('T')[0];
-      const storeFilter = selectedStore !== "all" ? `_store-${selectedStore}` : "";
-      const repFilter = selectedRep !== "all" ? `_rep-${selectedRep.replace(/\s+/g, "-")}` : "";
+      const storeFilter = repFilters.storeId !== "all" ? `_store-${repFilters.storeId}` : "";
+      const repFilter = (repFilters.salesRepId && repFilters.salesRepId !== "all") || repFilters.searchQuery ? 
+        `_rep-${(repFilters.searchQuery || repFilters.salesRepId || "").replace(/\s+/g, "-")}` : "";
       
       link.setAttribute("download", `sales-rep-performance_${dateStr}${storeFilter}${repFilter}.csv`);
       link.style.visibility = "hidden";
@@ -824,7 +1328,7 @@ export default function SalesPage() {
     }
   };
 
-  if (!repData) {
+  if (!rawSalesData) {
     return (
       <div className="p-6">
         <div className="animate-pulse space-y-6">
@@ -881,184 +1385,25 @@ export default function SalesPage() {
           </div>
         </motion.div>
 
-        {/* Advanced Filters */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.5 }}
-        >
-          <Card className="glow-card card-shadow border-border/50 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Filter className="h-5 w-5" />
-                  Advanced Filters
-                </CardTitle>
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      id="include-returns"
-                      checked={includeReturns}
-                      onCheckedChange={setIncludeReturns}
-                    />
-                    <Label htmlFor="include-returns">Include Returns</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      id="include-gift-cards"
-                      checked={includeGiftCards}
-                      onCheckedChange={setIncludeGiftCards}
-                    />
-                    <Label htmlFor="include-gift-cards">Include Gift Cards</Label>
-                  </div>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Date range and primary filters */}
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div>
-                  <Label className="text-sm text-muted-foreground mb-2 block">
-                    Date Range
-                  </Label>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        {dateRange ? "Custom Range" : "Last 30 days"}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      {dateRangePresets.map(preset => (
-                        <DropdownMenuItem
-                          key={preset.label}
-                          onClick={() => handleDateRangeSelect(preset.value)}
-                        >
-                          {preset.label}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
-                <div>
-                  <Label className="text-sm text-muted-foreground mb-2 block">
-                    Store
-                  </Label>
-                  <Select value={selectedStore} onValueChange={setSelectedStore}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All stores" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All stores</SelectItem>
-                      {filters?.stores.map((store: any) => (
-                        <SelectItem key={store} value={store}>
-                          Store {store}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label className="text-sm text-muted-foreground mb-2 block">
-                    Sales Rep
-                  </Label>
-                  <Select value={selectedRep} onValueChange={setSelectedRep}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All reps" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All reps</SelectItem>
-                      {filters?.reps.map((rep: any) => (
-                        <SelectItem key={rep.name} value={rep.name}>
-                          {rep.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label className="text-sm text-muted-foreground mb-2 block">
-                    Performance
-                  </Label>
-                  <Select value={performanceFilter} onValueChange={setPerformanceFilter}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All reps" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All performers</SelectItem>
-                      <SelectItem value="top">Top 10</SelectItem>
-                      <SelectItem value="bottom">Bottom 10</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label className="text-sm text-muted-foreground mb-2 block">
-                    Search
-                  </Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      placeholder="Search reps..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Additional filters */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="min-tickets" className="text-sm">
-                      Min tickets:
-                    </Label>
-                    <Input
-                      id="min-tickets"
-                      type="number"
-                      placeholder="5"
-                      value={minTickets || ""}
-                      onChange={(e) => setMinTickets(e.target.value ? parseInt(e.target.value) : undefined)}
-                      className="w-20"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">
-                    Sort by:
-                  </span>
-                  <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="revenue">Revenue</SelectItem>
-                      <SelectItem value="tickets">Tickets</SelectItem>
-                      <SelectItem value="gp">GP %</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
-                  >
-                    {sortOrder === "desc" ? (
-                      <ArrowDownRight className="h-4 w-4" />
-                    ) : (
-                      <ArrowUpRight className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+        {/* Store-Level Filter - affects only the top 8 metric cards */}
+        <ModernSalesFilter
+          filters={{
+            dateRange: storeFilters.dateRange,
+            storeId: storeFilters.storeId,
+            salesRepId: "all", // Not used for store-level
+            searchQuery: "", // Not used for store-level
+            includeReturns: storeFilters.includeReturns
+          }}
+          onFiltersChange={(filters) => {
+            setStoreFilters({
+              dateRange: filters.dateRange,
+              storeId: filters.storeId,
+              includeReturns: filters.includeReturns
+            });
+          }}
+          filterData={transformedFilterData}
+          isLoading={!filterData}
+        />
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1094,14 +1439,14 @@ export default function SalesPage() {
             title="Active Reps"
             value={overallMetrics.activeReps}
             icon={Users}
-            description={`of ${repData.totalReps} total`}
+            description={`of ${repData?.totalReps || 0} total`}
             delay={0.4}
           />
           <MetricCard
             title="Return Rate"
-            value={`${(overallMetrics.avgReturnRate || 0).toFixed(1)}%`}
+            value={`${(overallMetrics.returnRate || 0).toFixed(1)}%`}
             icon={RotateCcw}
-            description="Average across reps"
+            description="Return tickets / Total tickets"
             delay={0.45}
           />
           <MetricCard
@@ -1119,6 +1464,62 @@ export default function SalesPage() {
             delay={0.55}
           />
         </div>
+
+        {/* Separator */}
+        <div className="my-8">
+          <Separator />
+        </div>
+
+        {/* Rep Performance Filters - affects only the rep performance data below */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6, duration: 0.5 }}
+          className="space-y-4"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <Users className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-semibold text-foreground">Sales Rep Performance</h2>
+            <Badge variant="outline" className="text-xs">
+              Separate filters - does not affect metrics above
+            </Badge>
+          </div>
+          
+          <ModernSalesFilter
+            filters={repFilters}
+            onFiltersChange={setRepFilters}
+            filterData={transformedFilterData}
+            isLoading={!filterData}
+          />
+          
+          {/* Sorting Controls for Rep Table */}
+          <div className="flex items-center justify-end gap-2 mt-4">
+            <span className="text-sm text-muted-foreground">
+              Sort reps by:
+            </span>
+            <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="revenue">Revenue</SelectItem>
+                <SelectItem value="tickets">Tickets</SelectItem>
+                <SelectItem value="gp">GP %</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
+            >
+              {sortOrder === "desc" ? (
+                <ArrowDownRight className="h-4 w-4" />
+              ) : (
+                <ArrowUpRight className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </motion.div>
 
         {/* Main Content Tabs */}
         <motion.div
@@ -1141,11 +1542,11 @@ export default function SalesPage() {
                     <div>
                       <CardTitle>Sales Rep Rankings</CardTitle>
                       <CardDescription>
-                        {repData.filteredCount} reps shown • Sorted by {sortBy}
+                        {repData?.filteredCount || 0} reps shown • Sorted by {sortBy}
                       </CardDescription>
                     </div>
                     <Badge variant="secondary">
-                      {repData.dateRange && (
+                      {repData?.dateRange && (
                         <>
                           {new Date(repData.dateRange.start).toLocaleDateString()} - 
                           {new Date(repData.dateRange.end).toLocaleDateString()}
@@ -1168,7 +1569,7 @@ export default function SalesPage() {
                         key={rep.repName}
                         rep={rep}
                         rank={index + 1}
-                        companyAvg={repData.companyMetrics}
+                        companyAvg={repData?.companyMetrics}
                         onSelect={setSelectedRepForDetail}
                         delay={Math.min(index * 0.05, 0.5)}
                       />
@@ -1364,7 +1765,7 @@ export default function SalesPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {filters?.stores.map(store => {
+                    {filterData?.stores.map((store: any) => {
                       const storeReps = processedReps.filter(rep => 
                         rep.metadata?.storeId === store
                       );

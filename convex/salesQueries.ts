@@ -44,22 +44,23 @@ export const getSalesData = query({
         )
       );
 
-    // Apply additional filters
-    let salesData = await salesQuery.collect();
-    let previousSalesData = await previousSalesQuery.collect();
-
+    // MAJOR OPTIMIZATION: Add store/rep filters to query instead of post-processing
     if (args.storeId && args.storeId !== "all") {
-      salesData = salesData.filter(sale => sale.store_id === args.storeId);
-      previousSalesData = previousSalesData.filter(sale => sale.store_id === args.storeId);
+      salesQuery = salesQuery.filter((q) => q.eq(q.field("store_id"), args.storeId));
+      previousSalesQuery = previousSalesQuery.filter((q) => q.eq(q.field("store_id"), args.storeId));
     }
 
     if (args.salesRep && args.salesRep !== "all") {
-      salesData = salesData.filter(sale => sale.sales_rep === args.salesRep);
-      previousSalesData = previousSalesData.filter(sale => sale.sales_rep === args.salesRep);
+      salesQuery = salesQuery.filter((q) => q.eq(q.field("sales_rep"), args.salesRep));
+      previousSalesQuery = previousSalesQuery.filter((q) => q.eq(q.field("sales_rep"), args.salesRep));
     }
 
-    // Get returns and gift cards for the same period
-    const returns = await ctx.db
+    // MAJOR OPTIMIZATION: Limit data fetch
+    let salesData = await salesQuery.take(1000); // Limit for performance
+    let previousSalesData = await previousSalesQuery.take(1000);
+
+    // Get returns and gift cards with limits
+    let returnsQuery = ctx.db
       .query("return_tickets")
       .filter((q) => 
         q.and(
@@ -67,10 +68,9 @@ export const getSalesData = query({
           q.gte(q.field("sale_date"), startDate.toISOString()),
           q.lte(q.field("sale_date"), endDate.toISOString())
         )
-      )
-      .collect();
+      );
 
-    const giftCards = await ctx.db
+    let giftCardsQuery = ctx.db
       .query("gift_card_tickets")
       .filter((q) => 
         q.and(
@@ -78,8 +78,21 @@ export const getSalesData = query({
           q.gte(q.field("sale_date"), startDate.toISOString()),
           q.lte(q.field("sale_date"), endDate.toISOString())
         )
-      )
-      .collect();
+      );
+
+    // Apply same filters to returns/gift cards
+    if (args.storeId && args.storeId !== "all") {
+      returnsQuery = returnsQuery.filter((q) => q.eq(q.field("store_id"), args.storeId));
+      giftCardsQuery = giftCardsQuery.filter((q) => q.eq(q.field("store_id"), args.storeId));
+    }
+
+    if (args.salesRep && args.salesRep !== "all") {
+      returnsQuery = returnsQuery.filter((q) => q.eq(q.field("sales_rep"), args.salesRep));
+      giftCardsQuery = giftCardsQuery.filter((q) => q.eq(q.field("sales_rep"), args.salesRep));
+    }
+
+    const returns = await returnsQuery.take(500);
+    const giftCards = await giftCardsQuery.take(500);
 
     // Calculate metrics
     const totalRevenue = salesData.reduce((sum, sale) => sum + (sale.transaction_total || 0), 0);
@@ -182,11 +195,11 @@ export const getSalesData = query({
 export const getSalesFilters = query({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
-    // Get unique stores
+    // MAJOR OPTIMIZATION: Limit data fetch for filter generation
     const sales = await ctx.db
       .query("ticket_history")
       .filter((q) => q.eq(q.field("user_id"), args.userId))
-      .collect();
+      .take(1000); // Only need sample of data to get filters
 
     const stores = [...new Set(sales.map(sale => sale.store_id))].sort();
     const salesReps = [...new Set(sales.map(sale => sale.sales_rep).filter(Boolean))].sort();

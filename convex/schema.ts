@@ -52,6 +52,58 @@ export default defineSchema({
       .index("by_user", ["user_id"])
       .index("by_vendor", ["primary_vendor"]),
 
+  ticket_uploads: defineTable({
+    user_id: v.string(),
+    upload_name: v.string(),
+    total_tickets: v.number(),
+    total_entries: v.number(),
+    stores_affected: v.array(v.string()),
+    upload_date: v.string(),
+    status: v.string(), // "success", "partial", "failed"
+  })
+      .index("by_user", ["user_id"])
+      .index("by_date", ["upload_date"]),
+
+  dashboard_metrics_cache: defineTable({
+    user_id: v.string(),
+    date_range: v.number(), // 7, 30, 60, 90 days
+    metrics: v.object({
+      avgTicketSize: v.number(),
+      totalSalesReps: v.number(),
+      totalStores: v.number(),
+      grossProfitPercent: v.number(),
+      totalSales: v.number(),
+      totalTickets: v.number(),
+      underperformingStores: v.number(),
+      underperformingReps: v.number(),
+    }),
+    salesTrend: v.array(v.object({
+      date: v.string(),
+      sales: v.number(),
+      transactions: v.number(),
+    })),
+    storePerformance: v.array(v.object({
+      storeId: v.string(),
+      totalSales: v.number(),
+      ticketCount: v.number(),
+      avgTicketSize: v.number(),
+      isUnderperforming: v.boolean(),
+    })),
+    repPerformance: v.array(v.object({
+      repName: v.string(),
+      totalSales: v.number(),
+      ticketCount: v.number(),
+      avgTicketSize: v.number(),
+      storeCount: v.number(),
+      isUnderperforming: v.boolean(),
+    })),
+    last_updated: v.string(),
+    data_hash: v.string(), // Hash of data to detect changes
+  })
+      .index("by_user_range", ["user_id", "date_range"])
+      .index("by_user", ["user_id"]),
+
+
   inventory_lines: defineTable({
     upload_id: v.string(),
     user_id: v.string(),
@@ -73,7 +125,9 @@ export default defineSchema({
       .index("by_item", ["item_number"])
       .index("by_vendor", ["primary_vendor"])
       .index("by_upload", ["upload_id"])
-      .index("by_store_item", ["store_id", "item_number"]),
+      .index("by_store_item", ["store_id", "item_number"])
+      .index("by_user_id", ["user_id"])
+      .index("by_user_store", ["user_id", "store_id"]),
 
   transfer_logs: defineTable({
     upload_id: v.string(),
@@ -151,6 +205,7 @@ export default defineSchema({
     sales_rep: v.optional(v.string()),
     giftcard_amount: v.optional(v.number()),
     product_name: v.optional(v.string()),
+    gross_profit: v.optional(v.string()),
     user_id: v.string(),
   })
     .index('by_ticket_number', ['ticket_number'])

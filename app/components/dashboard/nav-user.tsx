@@ -23,6 +23,7 @@ import {
   useSidebar,
 } from "~/components/ui/sidebar";
 import { useClerk } from "@clerk/react-router";
+import { motion } from "framer-motion";
 
 export function NavUser({ user }: any) {
   const { isMobile } = useSidebar();
@@ -59,7 +60,7 @@ export function NavUser({ user }: any) {
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg border-border/50 shadow-xl backdrop-blur-sm bg-card/95"
             side={isMobile ? "bottom" : "right"}
             align="end"
             sideOffset={4}
@@ -95,10 +96,26 @@ export function NavUser({ user }: any) {
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => signOut({ redirectUrl: "/" })}>
-              <IconLogout />
-              Sign Out
+            <DropdownMenuSeparator className="bg-border/50" />
+            <DropdownMenuItem 
+              onClick={() => signOut({ redirectUrl: "/" })}
+              className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/20 transition-all duration-200 group cursor-pointer hover:bg-red-50/80 dark:hover:bg-red-950/30 rounded-md mx-1 my-1"
+            >
+              <motion.div
+                whileHover={{ scale: 1.1, rotate: 15 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className="mr-2"
+              >
+                <IconLogout className="h-4 w-4" />
+              </motion.div>
+              <motion.span 
+                className="font-medium group-hover:text-red-700 dark:group-hover:text-red-300 transition-colors duration-200"
+                whileHover={{ x: 2 }}
+                transition={{ duration: 0.2 }}
+              >
+                Sign Out
+              </motion.span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

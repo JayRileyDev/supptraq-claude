@@ -1,8 +1,9 @@
 // Removed unused imports - handled by dashboard layout
 import { motion } from "framer-motion";
-import { Upload, Package, Ticket } from "lucide-react";
+import { Upload, Package, Ticket, FileSpreadsheet } from "lucide-react";
 import MerchUpload from '~/components/upload/MerchUpload'
 import TicketUpload from '~/components/upload/TicketUpload'
+import SkuVendorMapUpload from '~/components/upload/SkuVendorMapUpload'
 import { api } from '../../convex/_generated/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
@@ -81,6 +82,31 @@ export default function UploadPage() {
                         </Card>
                     </motion.div>
                 </div>
+
+                {/* SKU Vendor Map Upload - Small Section */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4, duration: 0.5 }}
+                    className="mt-6"
+                >
+                    <div className="max-w-md mx-auto">
+                        <Card className="border-dashed border-2 border-blue-300 bg-blue-50/20">
+                            <CardHeader className="pb-3">
+                                <div className="flex items-center gap-2">
+                                    <FileSpreadsheet className="h-4 w-4 text-blue-600" />
+                                    <CardTitle className="text-sm text-blue-800">SKU Vendor Map</CardTitle>
+                                </div>
+                                <CardDescription className="text-xs text-blue-600">
+                                    Quick restore for item descriptions
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                                <SkuVendorMapUpload />
+                            </CardContent>
+                        </Card>
+                    </div>
+                </motion.div>
 
                 {/* Help Section */}
                 <motion.div

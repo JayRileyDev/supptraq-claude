@@ -1,5 +1,6 @@
 import { getAuth } from "@clerk/react-router/ssr.server";
 import { ConvexHttpClient } from "convex/browser";
+import { redirect } from "react-router";
 import { Navbar } from "~/components/homepage/navbar";
 import Hero from "~/components/homepage/hero";
 import ProblemSection from "~/components/homepage/problem-section";
@@ -39,7 +40,6 @@ export function meta({}: Route.MetaArgs) {
     { property: "og:image:height", content: "630" },
     { property: "og:url", content: siteUrl },
     { property: "og:site_name", content: "React Starter Kit" },
-    { property: "og:image", content: imageUrl },
 
     // Twitter Card
     { name: "twitter:card", content: "summary_large_image" },
@@ -61,24 +61,20 @@ export function meta({}: Route.MetaArgs) {
 export async function loader(args: Route.LoaderArgs) {
   const { userId } = await getAuth(args);
 
+  // If user is signed in, redirect to dashboard immediately
+  // This avoids expensive subscription checks on the home page
+  if (userId) {
+    throw redirect("/dashboard");
+  }
+
   const convex = new ConvexHttpClient(process.env.VITE_CONVEX_URL!);
 
-  // Parallel data fetching to reduce waterfall
-  const [subscriptionData, plans] = await Promise.all([
-    userId
-      ? convex.query(api.subscriptions.checkUserSubscriptionStatus, {
-          userId,
-        }).catch((error) => {
-          console.error("Failed to fetch subscription data:", error);
-          return null;
-        })
-      : Promise.resolve(null),
-    convex.action(api.subscriptions.getAvailablePlans),
-  ]);
+  // Only fetch plans for non-signed-in users (for pricing display)
+  const plans = await convex.action(api.subscriptions.getAvailablePlans);
 
   return {
-    isSignedIn: !!userId,
-    hasActiveSubscription: subscriptionData?.hasActiveSubscription || false,
+    isSignedIn: false,
+    hasActiveSubscription: false,
     plans,
   };
 }

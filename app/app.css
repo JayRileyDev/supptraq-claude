@@ -258,8 +258,8 @@
   100% { background-position: 0% 50%; }
 }
 
-/* Glowing text effect */
-.glow-text {
+/* Glowing text effect - only in dark mode */
+.dark .glow-text {
   text-shadow: 0 0 10px rgba(142, 99, 255, 0.5);
 }
 

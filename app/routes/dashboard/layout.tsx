@@ -1,10 +1,10 @@
 import { getAuth } from "@clerk/react-router/ssr.server";
 import { ConvexHttpClient } from "convex/browser";
-import { redirect, useLoaderData } from "react-router";
+import { redirect } from "react-router";
+import { useUser } from "@clerk/react-router";
 import { EnhancedSidebar } from "~/components/dashboard/enhanced-sidebar";
 import { EnhancedTopbar } from "~/components/dashboard/enhanced-topbar";
 import { api } from "../../../convex/_generated/api";
-import { createClerkClient } from "@clerk/react-router/api.server";
 import { Outlet } from "react-router";
 
 export async function loader(args: any) {
@@ -17,24 +17,21 @@ export async function loader(args: any) {
 
   const convex = new ConvexHttpClient(process.env.VITE_CONVEX_URL!);
 
-  // Parallel data fetching to reduce waterfall
-  const [subscriptionStatus, user] = await Promise.all([
-    convex.query(api.subscriptions.checkUserSubscriptionStatus, { userId }),
-    createClerkClient({
-      secretKey: process.env.CLERK_SECRET_KEY,
-    }).users.getUser(userId)
-  ]);
+  // Only check subscription status - skip expensive Clerk user fetch
+  // User data is already available client-side via useUser()
+  const subscriptionStatus = await convex.query(api.subscriptions.checkUserSubscriptionStatus, { userId });
 
   // Redirect to subscription-required if no active subscription
   if (!subscriptionStatus?.hasActiveSubscription) {
     throw redirect("/subscription-required");
   }
 
-  return { user };
+  // Return minimal data - user info available client-side
+  return { hasSubscription: true };
 }
 
 export default function DashboardLayout() {
-  const { user } = useLoaderData();
+  const { user } = useUser();
 
   return (
     <div className="flex h-screen bg-background dark:bg-background">

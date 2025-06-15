@@ -7,6 +7,8 @@ import { cn } from "~/lib/utils";
 import { useLocation, Link } from "react-router";
 import { useUser, useClerk } from "@clerk/react-router";
 import { motion } from "framer-motion";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "~/components/ui/dialog";
+import { useState } from "react";
 
 const pageNames: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -28,6 +30,7 @@ export function EnhancedTopbar({ className }: EnhancedTopbarProps) {
   const { user } = useUser();
   const { signOut } = useClerk();
   const currentPageName = pageNames[location.pathname] || "Dashboard";
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   
   const getCurrentTime = () => {
     const now = new Date();
@@ -64,15 +67,49 @@ export function EnhancedTopbar({ className }: EnhancedTopbarProps) {
         {/* Right Section - Actions */}
         <div className="flex items-center space-x-3">
           {/* Log Out Button */}
-          <Button 
-            onClick={() => signOut({ redirectUrl: "/" })}
-            size="sm" 
-            variant="destructive"
-            className="hover:scale-105 transition-all duration-200"
-          >
-            <LogOut className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Log Out</span>
-          </Button>
+          <Dialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 hover:text-red-700 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/20 dark:hover:border-red-700 dark:hover:text-red-300 hover:scale-105 transition-all duration-200 group shadow-sm"
+              >
+                <LogOut className="h-4 w-4 sm:mr-2 group-hover:rotate-12 transition-transform duration-200" />
+                <span className="hidden sm:inline font-medium">Sign Out</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <LogOut className="h-5 w-5 text-red-500" />
+                  Sign Out
+                </DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to sign out? You'll need to sign in again to access your dashboard.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setLogoutDialogOpen(false)}
+                  className="w-full sm:w-auto"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => {
+                    setLogoutDialogOpen(false);
+                    signOut({ redirectUrl: "/" });
+                  }}
+                  className="w-full sm:w-auto bg-red-600 hover:bg-red-700"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign Out
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Notifications */}
           <Button 

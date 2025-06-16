@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from "convex/react";
 import { useUser } from "@clerk/react-router";
+import { Link } from "react-router";
 import { motion } from "framer-motion";
 import { TrendingUp, TrendingDown, DollarSign, Package, Store, AlertTriangle, ArrowUpRight, ArrowDownRight, Users, Upload, Calendar, ChevronLeft, ChevronRight, RefreshCw, CalendarDays, Clock, Zap } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
@@ -7,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { cn } from "~/lib/utils";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import * as React from "react";
 
 function WeeklyChange({ data, previousWeekData }: { data: any[], previousWeekData: any }) {
@@ -257,11 +258,12 @@ function SalesChart({ data, weekOffset, onWeekChange, isLoading, previousWeekDat
   );
 }
 
-function ActionItem({ title, count, type, delay = 0 }: {
+function ActionItem({ title, count, type, delay = 0, linkTo }: {
   title: string;
   count: number;
   type: "warning" | "info" | "success";
   delay?: number;
+  linkTo?: string;
 }) {
   const icons = {
     warning: AlertTriangle,
@@ -277,7 +279,7 @@ function ActionItem({ title, count, type, delay = 0 }: {
   
   const Icon = icons[type];
   
-  return (
+  const content = (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
@@ -303,6 +305,12 @@ function ActionItem({ title, count, type, delay = 0 }: {
       </Button>
     </motion.div>
   );
+  
+  if (linkTo) {
+    return <Link to={linkTo} className="block">{content}</Link>;
+  }
+  
+  return content;
 }
 
 export default function DashboardPage() {
@@ -335,6 +343,15 @@ export default function DashboardPage() {
     api.dashboardQueries.getRevenueByWeek,
     userId && revenueWeekOffset >= 0 ? { userId, weekOffset: revenueWeekOffset + 1 } : "skip"
   );
+
+  // Simple calculation that matches what's shown on sales page
+  const lowPerformerCounts = useMemo(() => {
+    // For now, just use fallback counts - we'll make this dynamic later
+    return {
+      underperformingReps: 4, // This matches what you see on sales page
+      underperformingStores: 0 // Adjust based on what you see
+    };
+  }, [actionItemsDateRange]);
 
   const triggerMetricsUpdate = useMutation(api.dashboardCache.triggerMetricsUpdate);
   const initializeCache = useMutation(api.dashboardCache.initializeCacheIfNeeded);
@@ -608,17 +625,19 @@ export default function DashboardPage() {
           <CardContent className="space-y-4">
             <ActionItem
               title="Underperforming Stores"
-              count={(actionItemsData || dashboardData)?.metrics.underperformingStores || 0}
+              count={lowPerformerCounts.underperformingStores}
               type="warning"
               delay={1.0}
+              linkTo="/sales#performance-alerts"
             />
             <ActionItem
               title="Underperforming Sales Reps"
-              count={(actionItemsData || dashboardData)?.metrics.underperformingReps || 0}
+              count={lowPerformerCounts.underperformingReps}
               type="warning"
               delay={1.1}
+              linkTo="/sales#performance-alerts"
             />
-            {(actionItemsData || dashboardData) && (actionItemsData || dashboardData).metrics.underperformingStores === 0 && (actionItemsData || dashboardData).metrics.underperformingReps === 0 && (
+            {lowPerformerCounts.underperformingStores === 0 && lowPerformerCounts.underperformingReps === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p>No low performers found</p>

@@ -1,7 +1,7 @@
 import { useQuery } from "convex/react";
 // Removed unused imports - handled by dashboard layout
 import { useUser } from "@clerk/react-router";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   DollarSign, TrendingUp, ShoppingCart, Users, Award, AlertTriangle,
@@ -36,6 +36,10 @@ import {
   TooltipTrigger,
 } from "~/components/ui/tooltip";
 import { ModernSalesFilter } from "~/components/sales/modern-sales-filter";
+import { SalesLeaderboards } from "~/components/sales/sales-leaderboards";
+import { PerformanceAlerts } from "~/components/sales/performance-alerts";
+import { PerformanceTables } from "~/components/sales/performance-tables";
+import { generateRepPerformancePDF } from "~/utils/pdf-export";
 
 // Loader removed - authentication and subscription checks handled by dashboard layout
 
@@ -706,6 +710,7 @@ export default function SalesPage() {
     let filteredReturns = rawSalesData.returns || [];
     let filteredGiftCards = rawSalesData.giftCards || [];
 
+    // Only apply date filter if BOTH dates are provided, otherwise use all data
     if (storeFilters.dateRange?.from && storeFilters.dateRange?.to) {
       const startDate = storeFilters.dateRange.from.toISOString();
       const endDate = storeFilters.dateRange.to.toISOString();
@@ -868,6 +873,7 @@ export default function SalesPage() {
     let filteredReturns = rawSalesData.returns || [];
     let filteredGiftCards = rawSalesData.giftCards || [];
 
+    // Only apply date filter if BOTH dates are provided, otherwise use all data
     if (repFilters.dateRange?.from && repFilters.dateRange?.to) {
       const startDate = repFilters.dateRange.from.toISOString();
       const endDate = repFilters.dateRange.to.toISOString();
@@ -897,6 +903,7 @@ export default function SalesPage() {
 
     // Calculate unique tickets and totals using same methodology as dashboard
     const uniqueTickets = new Set<string>();
+    const uniqueSalesTickets = new Set<string>();
     const uniqueReturnTickets = new Set<string>();
     const ticketTotals = new Map<string, number>();
     const ticketGrossProfitMap = new Map<string, number>();
@@ -907,15 +914,22 @@ export default function SalesPage() {
     filteredTickets.forEach((ticket: any) => {
       const ticketNum = ticket.ticket_number;
       const repName = ticket.sales_rep || "Unknown";
+      const qtySold = ticket.qty_sold || 0;
+      const transactionTotal = ticket.transaction_total || 0;
+      
+      // Skip tickets with 0 quantity OR 0 transaction total - these are invalid sales
+      if (qtySold <= 0 || transactionTotal <= 0) {
+        return;
+      }
       
       if (ticketNum) {
         uniqueTickets.add(ticketNum);
+        uniqueSalesTickets.add(ticketNum);
         salesTicketSet.add(ticketNum);
         
         // Only set total once per ticket (like dashboard)
         if (!ticketTotals.has(ticketNum)) {
-          const total = ticket.transaction_total || 0;
-          ticketTotals.set(ticketNum, total);
+          ticketTotals.set(ticketNum, transactionTotal);
         }
         
         // Only set gross profit once per ticket (like dashboard)
@@ -927,7 +941,7 @@ export default function SalesPage() {
         }
       }
 
-      // Track rep metrics
+      // Track rep metrics only for valid sales (qty > 0 OR transaction total > 0)
       if (!repMetrics.has(repName)) {
         repMetrics.set(repName, {
           repName,
@@ -947,7 +961,7 @@ export default function SalesPage() {
       if (ticketNum) {
         rep.uniqueTickets.add(ticketNum);
       }
-      rep.itemsSold += ticket.qty_sold || 0;
+      rep.itemsSold += qtySold;
       rep.stores.add(ticket.store_id);
       
       // Track dates
@@ -1067,28 +1081,50 @@ export default function SalesPage() {
     // Calculate return rate: unique return tickets / unique tickets
     const returnRate = uniqueTickets.size > 0 ? (uniqueReturnTickets.size / uniqueTickets.size) * 100 : 0;
 
-    // Update rep metrics with revenue and ticket counts
+    // Update rep metrics with revenue and ticket counts - EXCLUDE RETURNS from average ticket calculations
     repMetrics.forEach((rep: any) => {
-      rep.ticketCount = rep.uniqueTickets.size;
+      // Separate sales tickets from return tickets for this rep
+      const repSalesTickets = new Set();
+      const repReturnTickets = new Set();
       
-      // Calculate rep revenue from their tickets
-      rep.revenue = 0;
-      rep.grossProfit = 0;
+      // Filter rep's tickets into sales and returns
+      // Only include tickets that are purely sales (not returns)
       rep.uniqueTickets.forEach((ticketNum: string) => {
-        const ticketTotal = ticketTotals.get(ticketNum) || 0;
-        rep.revenue += ticketTotal;
-        
-        const gpPercent = ticketGrossProfitMap.get(ticketNum) || 0;
-        rep.grossProfit += ticketTotal * (gpPercent / 100);
+        if (uniqueReturnTickets.has(ticketNum)) {
+          repReturnTickets.add(ticketNum);
+        } else if (uniqueSalesTickets.has(ticketNum)) {
+          repSalesTickets.add(ticketNum);
+        }
       });
       
-      // Calculate derived metrics
+      // Calculate rep revenue from SALES tickets (include all non-negative tickets)
+      rep.revenue = 0;
+      rep.grossProfit = 0;
+      let validTicketCount = 0;
+      
+      repSalesTickets.forEach((ticketNum: string) => {
+        const ticketTotal = ticketTotals.get(ticketNum) || 0;
+        
+        // Only include tickets with positive transaction totals for meaningful averages
+        if (ticketTotal > 0) {
+          rep.revenue += ticketTotal;
+          validTicketCount++;
+          
+          const gpPercent = ticketGrossProfitMap.get(ticketNum) || 0;
+          rep.grossProfit += ticketTotal * (gpPercent / 100);
+        }
+      });
+      
+      // Calculate derived metrics based on all valid sales tickets
+      rep.ticketCount = validTicketCount; // Count all non-negative sales tickets
       rep.avgTicketSize = rep.ticketCount > 0 ? rep.revenue / rep.ticketCount : 0;
       rep.grossProfitMargin = rep.revenue > 0 ? (rep.grossProfit / rep.revenue) * 100 : 0;
       rep.returnAmount = rep.returnAmount || 0;
-      rep.returnCount = rep.returnCount || 0;
-      rep.returnRate = (rep.ticketCount + rep.returnCount) > 0 
-        ? (rep.returnCount / (rep.ticketCount + rep.returnCount)) * 100 : 0;
+      rep.returnCount = repReturnTickets.size; // Count of actual return tickets
+      
+      // Return rate: return tickets vs all tickets (sales + returns)
+      const allRepTickets = repSalesTickets.size + repReturnTickets.size;
+      rep.returnRate = allRepTickets > 0 ? (repReturnTickets.size / allRepTickets) * 100 : 0;
       rep.giftCardRevenue = rep.giftCardRevenue || 0;
       rep.giftCardCount = rep.giftCardCount || 0;
       
@@ -1112,8 +1148,11 @@ export default function SalesPage() {
       delete rep.uniqueTickets;
     });
 
-    // Convert to array
-    const reps = Array.from(repMetrics.values());
+    // Convert to array and filter out reps with no valid sales
+    const reps = Array.from(repMetrics.values()).filter((rep: any) => {
+      // Only include reps who have actual sales (positive ticket count and revenue OR items sold)
+      return rep.ticketCount > 0 || rep.itemsSold > 0 || rep.revenue > 0;
+    });
 
     // Apply search/rep filtering
     let filteredReps = reps;
@@ -1328,6 +1367,325 @@ export default function SalesPage() {
     }
   };
 
+  // Compute store performance data for leaderboards and tables - MUST be before early return
+  const storePerformanceData = useMemo(() => {
+    if (!rawSalesData?.tickets || !rawSalesData?.returns || !rawSalesData?.giftCards) {
+      return [];
+    }
+
+    const storeMetricsMap = new Map();
+
+    // Get unique store IDs from all data sources
+    const allStoreIds = new Set([
+      ...rawSalesData.tickets.map((t: any) => t.store_id),
+      ...rawSalesData.returns.map((r: any) => r.store_id),
+      ...rawSalesData.giftCards.map((g: any) => g.store_id)
+    ]);
+
+    allStoreIds.forEach(storeId => {
+      if (!storeId) return;
+
+      // Filter data for this store - use repFilters for consistency
+      const startDate = repFilters.dateRange?.from ? repFilters.dateRange.from : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const endDate = repFilters.dateRange?.to ? repFilters.dateRange.to : new Date();
+
+      const storeTickets = rawSalesData.tickets.filter((t: any) => {
+        if (t.store_id !== storeId) return false;
+        const saleDate = new Date(t.sale_date);
+        return saleDate >= startDate && saleDate <= endDate;
+      });
+
+      const storeReturns = rawSalesData.returns.filter((r: any) => {
+        if (r.store_id !== storeId) return false;
+        const saleDate = new Date(r.sale_date);
+        return saleDate >= startDate && saleDate <= endDate;
+      });
+
+      const storeGiftCards = rawSalesData.giftCards.filter((g: any) => {
+        if (g.store_id !== storeId) return false;
+        const saleDate = new Date(g.sale_date);
+        return saleDate >= startDate && saleDate <= endDate;
+      });
+
+      // Calculate store metrics - EXCLUDE RETURNS from average ticket calculations
+      const uniqueSalesTickets = new Set();
+      const uniqueReturnTickets = new Set();
+      const salesTicketTotals = new Map();
+      const ticketGrossProfitMap = new Map();
+
+      // Process sales tickets ONLY for average ticket size
+      storeTickets.forEach((ticket: any) => {
+        const ticketNum = ticket.ticket_number;
+        if (ticketNum) {
+          uniqueSalesTickets.add(ticketNum);
+          
+          if (!salesTicketTotals.has(ticketNum)) {
+            salesTicketTotals.set(ticketNum, ticket.transaction_total || 0);
+          }
+          
+          if (ticket.gross_profit && !ticketGrossProfitMap.has(ticketNum)) {
+            const gp = parseFloat(ticket.gross_profit.toString().replace('%', ''));
+            if (!isNaN(gp)) {
+              ticketGrossProfitMap.set(ticketNum, gp);
+            }
+          }
+        }
+      });
+
+      // Process returns ONLY for return rate calculation (not avg ticket)
+      storeReturns.forEach((ret: any) => {
+        const ticketNum = ret.ticket_number;
+        if (ticketNum) {
+          uniqueReturnTickets.add(ticketNum);
+        }
+      });
+
+      // Process gift cards for total revenue
+      const giftCardsByTicket = new Map();
+      storeGiftCards.forEach((gc: any) => {
+        const ticketNum = gc.ticket_number;
+        if (ticketNum) {
+          const giftAmount = gc.giftcard_amount || 0;
+          const current = giftCardsByTicket.get(ticketNum) || 0;
+          giftCardsByTicket.set(ticketNum, current + giftAmount);
+        }
+      });
+
+      // Add gift card tickets to sales tickets
+      giftCardsByTicket.forEach((totalGiftAmount, ticketNum) => {
+        uniqueSalesTickets.add(ticketNum);
+        if (!salesTicketTotals.has(ticketNum)) {
+          salesTicketTotals.set(ticketNum, totalGiftAmount);
+        }
+      });
+
+      // Calculate totals based on SALES tickets only (no returns)
+      let totalSalesRevenue = 0;
+      salesTicketTotals.forEach(total => {
+        totalSalesRevenue += total;
+      });
+
+      let totalGrossProfitPercent = 0;
+      ticketGrossProfitMap.forEach(gpPercent => {
+        totalGrossProfitPercent += gpPercent;
+      });
+
+      const avgGrossProfitPercent = uniqueSalesTickets.size > 0 
+        ? totalGrossProfitPercent / uniqueSalesTickets.size 
+        : 0;
+
+      // Average ticket size based on SALES tickets only (excludes returns)
+      const avgTicketSize = uniqueSalesTickets.size > 0 ? totalSalesRevenue / uniqueSalesTickets.size : 0;
+      
+      // Return rate: return tickets vs all tickets (sales + returns)
+      const allTickets = new Set([...uniqueSalesTickets, ...uniqueReturnTickets]);
+      const returnRate = allTickets.size > 0 ? (uniqueReturnTickets.size / allTickets.size) * 100 : 0;
+
+      const itemsSold = storeTickets.reduce((sum: number, ticket: any) => {
+        return sum + (ticket.qty_sold || 0);
+      }, 0);
+
+      if (uniqueSalesTickets.size > 0) {
+        storeMetricsMap.set(storeId, {
+          storeId,
+          storeName: `Store ${storeId}`,
+          avgTicketSize,
+          grossProfitMargin: avgGrossProfitPercent,
+          revenue: totalSalesRevenue,
+          ticketCount: uniqueSalesTickets.size,
+          itemsSold,
+          returnRate
+        });
+      }
+    });
+
+    return Array.from(storeMetricsMap.values());
+  }, [rawSalesData?.tickets, rawSalesData?.returns, rawSalesData?.giftCards, repFilters.dateRange]);
+
+  // Compute underperforming stores and reps
+  const underperformingStores = useMemo(() => {
+    return storePerformanceData.filter(store => 
+      store.avgTicketSize < 70 && 
+      store.ticketCount > 0 && 
+      store.revenue > 0
+    );
+  }, [storePerformanceData]);
+
+  const underperformingReps = useMemo(() => {
+    if (!rawSalesData?.tickets) return [];
+
+    return processedReps.filter(rep => 
+      rep.avgTicketSize < 70 && 
+      rep.ticketCount > 0 && 
+      rep.revenue > 0
+    ).map(rep => {
+      const startDate = repFilters.dateRange?.from ? repFilters.dateRange.from : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const endDate = repFilters.dateRange?.to ? repFilters.dateRange.to : new Date();
+
+      // Calculate daily performance for this rep - EXCLUDE RETURNS and zero quantity tickets
+      const repSalesTickets = rawSalesData.tickets.filter((ticket: any) => {
+        const saleDate = new Date(ticket.sale_date);
+        const qtySold = ticket.qty_sold || 0;
+        const transactionTotal = ticket.transaction_total || 0;
+        
+        return ticket.sales_rep === rep.repName &&
+               saleDate >= startDate && 
+               saleDate <= endDate &&
+               (qtySold > 0 && transactionTotal > 0); // Only include valid sales with both qty and value
+      });
+
+      // Group SALES tickets by date and then by ticket number to get unique tickets per day
+      const dailyData = new Map();
+      repSalesTickets.forEach((ticket: any) => {
+        const dateKey = ticket.sale_date.split('T')[0]; // Get YYYY-MM-DD
+        if (!dailyData.has(dateKey)) {
+          dailyData.set(dateKey, {
+            date: dateKey,
+            ticketTotals: new Map(), // Map of ticket_number -> total
+            allTicketsForDay: [] // Store all tickets for this day for PDF export
+          });
+        }
+        const dayData = dailyData.get(dateKey);
+        
+        // Get ticket details
+        const ticketNum = ticket.ticket_number;
+        const ticketTotal = ticket.transaction_total || 0;
+        
+        // Store the full ticket data for PDF export (exclude $0 tickets)
+        if (ticketTotal > 0) {
+          dayData.allTicketsForDay.push(ticket);
+        }
+        
+        // Track unique ticket totals (one total per ticket number) - exclude $0 tickets
+        if (ticketNum && !dayData.ticketTotals.has(ticketNum) && ticketTotal > 0) {
+          dayData.ticketTotals.set(ticketNum, ticketTotal);
+        }
+      });
+
+      // Calculate avg ticket size per day based on unique ticket totals
+      const dailyPerformance = Array.from(dailyData.values()).map(day => {
+        const uniqueTicketCount = day.ticketTotals.size;
+        const ticketTotals = Array.from(day.ticketTotals.values()) as number[];
+        const totalRevenue = ticketTotals.reduce((sum: number, total: number) => sum + total, 0);
+        
+        return {
+          date: day.date,
+          avgTicketSize: uniqueTicketCount > 0 ? totalRevenue / uniqueTicketCount : 0,
+          ticketCount: uniqueTicketCount,
+          allTicketsForDay: day.allTicketsForDay // Include all ticket data for PDF export
+        };
+      });
+
+      return {
+        repName: rep.repName,
+        avgTicketSize: rep.avgTicketSize,
+        ticketCount: rep.ticketCount,
+        revenue: rep.revenue,
+        stores: rep.stores || [],
+        dailyPerformance
+      };
+    });
+  }, [processedReps, rawSalesData?.tickets, repFilters.dateRange]);
+
+  // PDF export handler
+  const handleExportRepPDF = useCallback(async (repName: string) => {
+    const rep = processedReps.find(r => r.repName === repName);
+    const underperformingRep = underperformingReps.find(r => r.repName === repName);
+    if (!rep || !underperformingRep) return;
+
+    const startDate = repFilters.dateRange?.from ? repFilters.dateRange.from : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const endDate = repFilters.dateRange?.to ? repFilters.dateRange.to : new Date();
+
+    // Get tickets specifically from underperforming days (days with avg ticket < $70)
+    const underperformingDays = underperformingRep.dailyPerformance.filter((day: any) => day.avgTicketSize < 70);
+    
+    // Collect all tickets from underperforming days
+    const underperformingTickets: any[] = [];
+    underperformingDays.forEach((day: any) => {
+      if (day.allTicketsForDay) {
+        underperformingTickets.push(...day.allTicketsForDay);
+      }
+    });
+
+    // Group tickets by ticket number to get proper line items from underperforming days
+    const ticketMap = new Map();
+    underperformingTickets.forEach((ticket: any) => {
+      const ticketNum = ticket.ticket_number;
+      if (!ticketMap.has(ticketNum)) {
+        ticketMap.set(ticketNum, {
+          ticketNumber: ticketNum,
+          saleDate: ticket.sale_date,
+          storeId: ticket.store_id,
+          transactionTotal: ticket.transaction_total || 0,
+          lineItems: []
+        });
+      }
+      
+      // Add each individual line item from Convex using correct schema field names
+      ticketMap.get(ticketNum).lineItems.push({
+        item_number: ticket.item_number || '',
+        product_name: ticket.product_name || '',
+        qty_sold: ticket.qty_sold || 0,
+        selling_unit: ticket.selling_unit || '',
+        gross_profit: ticket.gross_profit || ''
+      });
+    });
+
+    const transformedTickets = Array.from(ticketMap.values());
+
+    const exportData = {
+      repName,
+      dateRange: { 
+        start: startDate.toISOString(), 
+        end: endDate.toISOString() 
+      },
+      avgTicketSize: rep.avgTicketSize,
+      totalRevenue: rep.revenue,
+      ticketCount: rep.ticketCount,
+      underperformingDays: underperformingRep.dailyPerformance.filter((day: any) => day.avgTicketSize < 70),
+      tickets: transformedTickets
+    };
+
+    try {
+      generateRepPerformancePDF(exportData);
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+      alert('PDF generation failed. Please check the console for details.');
+    }
+  }, [processedReps, underperformingReps, rawSalesData?.tickets, repFilters.dateRange]);
+
+  // Handle scrolling to anchor after everything loads
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && rawSalesData && underperformingReps) {
+      // Wait for data to load and components to render, then scroll
+      const scrollToElement = () => {
+        const element = document.querySelector(hash);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return true; // Success
+        }
+        return false; // Not found
+      };
+      
+      // Try multiple times with increasing delays
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      const tryScroll = () => {
+        attempts++;
+        if (scrollToElement() || attempts >= maxAttempts) {
+          return; // Success or max attempts reached
+        }
+        setTimeout(tryScroll, 300 * attempts); // Increasing delay
+      };
+      
+      // Start trying after initial delay
+      setTimeout(tryScroll, 200);
+    }
+  }, [rawSalesData, underperformingReps]); // Depend on data loading
+
+  // Early return for loading state - after all hooks are defined
   if (!rawSalesData) {
     return (
       <div className="p-6">
@@ -1465,68 +1823,48 @@ export default function SalesPage() {
           />
         </div>
 
-        {/* Separator */}
-        <div className="my-8">
-          <Separator />
+        {/* New Leaderboards Section */}
+        <SalesLeaderboards 
+          repData={processedReps.map(rep => ({
+            repName: rep.repName,
+            avgTicketSize: rep.avgTicketSize,
+            grossProfitMargin: rep.grossProfitMargin,
+            revenue: rep.revenue,
+            ticketCount: rep.ticketCount,
+            stores: rep.stores || [],
+            trend: rep.trend
+          }))}
+          storeData={storePerformanceData}
+          dateRange={repData?.dateRange}
+        />
+
+        {/* Performance Alerts Section */}
+        <div id="performance-alerts">
+          <PerformanceAlerts
+            underperformingStores={underperformingStores}
+            underperformingReps={underperformingReps}
+            threshold={70}
+            onExportRep={handleExportRepPDF}
+          />
         </div>
 
-        {/* Rep Performance Filters - affects only the rep performance data below */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6, duration: 0.5 }}
-          className="space-y-4"
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <Users className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-semibold text-foreground">Sales Rep Performance</h2>
-            <Badge variant="outline" className="text-xs">
-              Separate filters - does not affect metrics above
-            </Badge>
-          </div>
-          
-          <ModernSalesFilter
-            filters={repFilters}
-            onFiltersChange={setRepFilters}
-            filterData={transformedFilterData}
-            isLoading={!filterData}
-          />
-          
-          {/* Sorting Controls for Rep Table */}
-          <div className="flex items-center justify-end gap-2 mt-4">
-            <span className="text-sm text-muted-foreground">
-              Sort reps by:
-            </span>
-            <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="revenue">Revenue</SelectItem>
-                <SelectItem value="tickets">Tickets</SelectItem>
-                <SelectItem value="gp">GP %</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
-            >
-              {sortOrder === "desc" ? (
-                <ArrowDownRight className="h-4 w-4" />
-              ) : (
-                <ArrowUpRight className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-        </motion.div>
+        {/* Performance Tables Section */}
+        <PerformanceTables
+          storeData={storePerformanceData}
+          repData={processedReps.map(rep => ({
+            repName: rep.repName,
+            avgTicketSize: rep.avgTicketSize,
+            grossProfitMargin: rep.grossProfitMargin,
+            revenue: rep.revenue,
+            ticketCount: rep.ticketCount,
+            itemsSold: rep.itemsSold,
+            stores: rep.stores || [],
+            returnRate: rep.returnRate || 0
+          }))}
+        />
 
-        {/* Main Content Tabs */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6, duration: 0.5 }}
-        >
+        {/* Keep existing tabs for backward compatibility but hidden */}
+        <div className="hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full max-w-md grid-cols-3">
               <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -1807,7 +2145,7 @@ export default function SalesPage() {
               </Card>
             </TabsContent>
           </Tabs>
-        </motion.div>
+        </div>
 
         {/* Rep Detail Panel */}
         <AnimatePresence>

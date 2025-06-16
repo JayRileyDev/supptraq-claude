@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as aiBusinessQueries from "../aiBusinessQueries.js";
+import type * as businessQueries from "../businessQueries.js";
 import type * as dashboardCache from "../dashboardCache.js";
 import type * as dashboardQueries from "../dashboardQueries.js";
 import type * as diagnosticQueries from "../diagnosticQueries.js";
@@ -44,6 +46,8 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  aiBusinessQueries: typeof aiBusinessQueries;
+  businessQueries: typeof businessQueries;
   dashboardCache: typeof dashboardCache;
   dashboardQueries: typeof dashboardQueries;
   diagnosticQueries: typeof diagnosticQueries;

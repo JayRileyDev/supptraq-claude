@@ -25,8 +25,8 @@ const data = {
       icon: IconUpload,
     },
     {
-      title: "AI Chat",
-      url: "/dashboard/chat",
+      title: "AI Assistant",
+      url: "/chat",
       icon: IconMessageCircle,
     },
   ],

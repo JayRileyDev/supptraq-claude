@@ -4,6 +4,7 @@ import { redirect } from "react-router";
 import { useUser } from "@clerk/react-router";
 import { EnhancedSidebar } from "~/components/dashboard/enhanced-sidebar";
 import { EnhancedTopbar } from "~/components/dashboard/enhanced-topbar";
+import { UnifiedSalesProvider } from "~/components/sales/UnifiedSalesProvider";
 import { api } from "../../../convex/_generated/api";
 import { Outlet } from "react-router";
 
@@ -34,14 +35,16 @@ export default function DashboardLayout() {
   const { user } = useUser();
 
   return (
-    <div className="flex h-screen bg-background dark:bg-background">
-      <EnhancedSidebar user={user} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <EnhancedTopbar />
-        <main className="flex-1 overflow-y-auto bg-background">
-          <Outlet />
-        </main>
+    <UnifiedSalesProvider>
+      <div className="flex h-screen bg-background dark:bg-background">
+        <EnhancedSidebar user={user} />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <EnhancedTopbar />
+          <main className="flex-1 overflow-y-auto bg-background">
+            <Outlet />
+          </main>
+        </div>
       </div>
-    </div>
+    </UnifiedSalesProvider>
   );
 }

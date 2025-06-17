@@ -1,5 +1,6 @@
 import { query } from './_generated/server';
 import { v } from 'convex/values';
+import { getAllDataWithPagination } from './utils/pagination';
 
 interface AggregatedTicketStats {
   totalTickets: number;
@@ -51,21 +52,34 @@ export const getTicketStats = query({
       giftCardQuery = giftCardQuery.filter(q => q.lte(q.field('sale_date'), end_date));
     }
     
-    // Execute queries with smart limits based on date range
-    const dateRangeDays = start_date && end_date ? 
-      Math.ceil((new Date(end_date).getTime() - new Date(start_date).getTime()) / (1000 * 60 * 60 * 24)) : 
-      null;
+    // Use pagination to get ALL data without limits - this is critical for accurate totals
+    console.log(`📊 getTicketStats: Fetching ALL data for user ${user_id} with pagination`);
     
-    // Dynamic limits based on expected data size
-    const baseLimit = dateRangeDays ? Math.min(50000, dateRangeDays * 100) : 25000;
-    const returnLimit = Math.min(baseLimit / 2, 15000);
-    const giftCardLimit = Math.min(baseLimit / 4, 8000);
+    let ticketHistory: any[] = [];
+    let returnTickets: any[] = [];
+    let giftCards: any[] = [];
     
-    const [ticketHistory, returnTickets, giftCards] = await Promise.all([
-      ticketHistoryQuery.order('desc').take(baseLimit),
-      returnTicketsQuery.order('desc').take(returnLimit),
-      giftCardQuery.order('desc').take(giftCardLimit)
-    ]);
+    if (user_id) {
+      // Use pagination for complete data when user_id is specified
+      [ticketHistory, returnTickets, giftCards] = await Promise.all([
+        getAllDataWithPagination(ctx, "ticket_history", user_id, start_date, end_date),
+        getAllDataWithPagination(ctx, "return_tickets", user_id, start_date, end_date),
+        getAllDataWithPagination(ctx, "gift_card_tickets", user_id, start_date, end_date)
+      ]);
+    } else {
+      // Fallback to old method with limits for admin/global queries
+      const baseLimit = 25000;
+      const returnLimit = 15000;
+      const giftCardLimit = 8000;
+      
+      [ticketHistory, returnTickets, giftCards] = await Promise.all([
+        ticketHistoryQuery.order('desc').take(baseLimit),
+        returnTicketsQuery.order('desc').take(returnLimit),
+        giftCardQuery.order('desc').take(giftCardLimit)
+      ]);
+    }
+    
+    console.log(`✅ getTicketStats: Fetched ${ticketHistory.length} tickets, ${returnTickets.length} returns, ${giftCards.length} gift cards`);
     
     // Collect ALL unique ticket numbers across all tables
     const allTicketNumbers = new Set<string>();

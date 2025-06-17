@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { cn } from "~/lib/utils";
+import { getAvgTicketColor } from "~/utils/avg-ticket-colors";
 import { AlertTriangle, Store, User, ChevronDown, FileText, Calendar, DollarSign } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -59,7 +60,7 @@ function StoreAlertItem({ store }: { store: UnderperformingStore }) {
           </div>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+          <p className={cn("text-2xl font-bold", getAvgTicketColor(store.avgTicketSize))}>
             ${Math.round(store.avgTicketSize)}
           </p>
           <p className="text-xs text-muted-foreground">avg ticket</p>
@@ -101,7 +102,7 @@ function RepAlertItem({
             </div>
             <div className="flex items-center gap-4">
               <div className="text-right">
-                <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                <p className={cn("text-2xl font-bold", getAvgTicketColor(rep.avgTicketSize))}>
                   ${Math.round(rep.avgTicketSize)}
                 </p>
                 <p className="text-xs text-muted-foreground">avg ticket</p>
@@ -165,7 +166,7 @@ function RepAlertItem({
                         <span className="text-muted-foreground">
                           {day.ticketCount} ticket{day.ticketCount !== 1 ? 's' : ''}
                         </span>
-                        <Badge variant="destructive" className="font-mono">
+                        <Badge variant="outline" className={cn("font-mono", getAvgTicketColor(day.avgTicketSize))}>
                           ${Math.round(day.avgTicketSize)}
                         </Badge>
                       </div>

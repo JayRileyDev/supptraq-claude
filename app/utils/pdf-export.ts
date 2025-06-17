@@ -1,5 +1,16 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+// Dynamic imports for client-side only execution
+// import jsPDF from "jspdf";
+// import autoTable from "jspdf-autotable";
+
+// Type declaration for jsPDF with autoTable extension
+declare module "jspdf" {
+  interface jsPDF {
+    autoTable: any;
+    lastAutoTable: {
+      finalY: number;
+    };
+  }
+}
 
 interface TicketData {
   ticketNumber: string;
@@ -27,13 +38,36 @@ interface RepPerformanceExport {
     ticketCount: number;
   }[];
   tickets: TicketData[];
+  _context?: {
+    totalUnderperformingDays: number;
+    totalDaysWorked: number;
+    performanceRatio: number;
+    needsCoaching: boolean;
+  } | null;
 }
 
-export function generateRepPerformancePDF(data: RepPerformanceExport) {
+export async function generateRepPerformancePDF(data: RepPerformanceExport) {
   try {
     console.log('Starting PDF generation for:', data.repName);
     console.log('PDF data:', data);
+    
+    // Check if we're running in the browser
+    if (typeof window === 'undefined') {
+      console.error('PDF generation attempted on server side');
+      throw new Error('PDF generation must run on client side');
+    }
+    
+    // Dynamic imports to ensure client-side execution
+    console.log('Importing PDF libraries...');
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable')
+    ]);
+    
+    console.log('PDF libraries imported successfully');
+    console.log('Creating new jsPDF instance...');
     const doc = new jsPDF();
+    console.log('jsPDF instance created successfully');
     let yPosition = 20;
   
   // Add subtle header background
@@ -52,7 +86,8 @@ export function generateRepPerformancePDF(data: RepPerformanceExport) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(28);
   doc.setTextColor(44, 62, 80);
-  doc.text("Sales Performance Review", 20, yPosition);
+  const isDateRange = data.dateRange.start !== data.dateRange.end;
+  doc.text(isDateRange ? "Sales Performance Review" : "Daily Performance Analysis", 20, yPosition);
   yPosition += 20;
   
   // Rep info in professional card-like layout
@@ -98,9 +133,9 @@ export function generateRepPerformancePDF(data: RepPerformanceExport) {
       color: [139, 69, 19]
     },
     { 
-      label: "Days Below $70", 
-      value: data.underperformingDays.length.toString(),
-      color: data.underperformingDays.length > 0 ? [239, 68, 68] : [34, 197, 94]
+      label: data._context ? "Overall Days <$70" : "Day Status", 
+      value: data._context ? `${data._context.totalUnderperformingDays}/${data._context.totalDaysWorked}` : (data.underperformingDays.length > 0 ? "Below $70" : "Above $70"),
+      color: (data._context ? data._context.totalUnderperformingDays > 0 : data.underperformingDays.length > 0) ? [239, 68, 68] : [34, 197, 94]
     }
   ];
   
@@ -376,10 +411,12 @@ export function generateRepPerformancePDF(data: RepPerformanceExport) {
   yPosition += 8;
   
   const insights = [
-    `Overall average ticket: $${data.avgTicketSize.toFixed(2)} ${data.avgTicketSize < 70 ? '(Below target)' : '(Above target)'}`,
-    `${data.underperformingDays.length} out of ${data.underperformingDays.length > 0 ? Math.ceil(data.ticketCount / 10) : 'N/A'} days below $70 threshold`,
-    `Total revenue impact: $${data.totalRevenue.toLocaleString()}`,
-    `Transaction volume: ${data.ticketCount} tickets processed`
+    `This day's average ticket: $${data.avgTicketSize.toFixed(2)} ${data.avgTicketSize < 70 ? '(Below $70 target)' : '(Above $70 target)'}`,
+    data._context ? 
+      `Rep has ${data._context.totalUnderperformingDays} out of ${data._context.totalDaysWorked} days below $70 (${(data._context.performanceRatio * 100).toFixed(0)}%)` :
+      `Single day analysis - ${data.underperformingDays.length > 0 ? 'Below' : 'Above'} $70 threshold`,
+    `Day revenue: $${data.totalRevenue.toLocaleString()}`,
+    `Day transaction volume: ${data.ticketCount} tickets processed`
   ];
   
   doc.setFont("helvetica", "normal");
@@ -411,8 +448,16 @@ export function generateRepPerformancePDF(data: RepPerformanceExport) {
     recommendations.push("Explore opportunities for premium product positioning");
   }
   
-  if (data.underperformingDays.length > 0) {
-    recommendations.push("Analyze patterns in underperforming days for process improvements");
+  if (data._context) {
+    if (data._context.needsCoaching) {
+      recommendations.push("Schedule immediate coaching session - rep has consistent underperformance");
+      recommendations.push("Review detailed transaction patterns across all underperforming days");
+    } else if (data._context.totalUnderperformingDays > 0) {
+      recommendations.push("Monitor performance trends and provide targeted support");
+      recommendations.push("Analyze specific factors contributing to occasional underperformance");
+    }
+  } else if (data.underperformingDays.length > 0) {
+    recommendations.push("Review this specific day's performance factors");
     recommendations.push("Implement daily performance monitoring and feedback");
   }
   
@@ -460,3 +505,4 @@ export function generateRepPerformancePDF(data: RepPerformanceExport) {
     throw error;
   }
 }
+

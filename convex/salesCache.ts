@@ -1,7 +1,9 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { getAllDataWithPagination } from "./utils/pagination";
 
-// Get fresh sales transaction data (no caching due to size limits)
+
+// Get fresh sales transaction data with complete pagination
 export const getSalesData = query({
   args: { 
     userId: v.string(),
@@ -16,41 +18,22 @@ export const getSalesData = query({
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - dateRange);
 
-      // Get all tickets in date range with optimized query
-      const tickets = await ctx.db
-        .query("ticket_history")
-        .filter((q) => 
-          q.and(
-            q.eq(q.field("user_id"), args.userId),
-            q.gte(q.field("sale_date"), startDate.toISOString()),
-            q.lte(q.field("sale_date"), endDate.toISOString())
-          )
-        )
-        .collect(); // Use collect() for complete data
+      console.log(`🔍 Fetching ALL sales data for user ${args.userId} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+      console.log(`📅 Date range: ${dateRange} days back from ${endDate.toISOString()}`);
 
-      // Get all returns in date range  
-      const returns = await ctx.db
-        .query("return_tickets")
-        .filter((q) => 
-          q.and(
-            q.eq(q.field("user_id"), args.userId),
-            q.gte(q.field("sale_date"), startDate.toISOString()),
-            q.lte(q.field("sale_date"), endDate.toISOString())
-          )
-        )
-        .collect();
+      // Get ALL data using pagination to avoid Convex limits
+      const [tickets, returns, giftCards] = await Promise.all([
+        getAllDataWithPagination(ctx, "ticket_history", args.userId, startDate.toISOString(), endDate.toISOString()),
+        getAllDataWithPagination(ctx, "return_tickets", args.userId, startDate.toISOString(), endDate.toISOString()),
+        getAllDataWithPagination(ctx, "gift_card_tickets", args.userId, startDate.toISOString(), endDate.toISOString())
+      ]);
 
-      // Get all gift cards in date range
-      const giftCards = await ctx.db
-        .query("gift_card_tickets")
-        .filter((q) => 
-          q.and(
-            q.eq(q.field("user_id"), args.userId),
-            q.gte(q.field("sale_date"), startDate.toISOString()),
-            q.lte(q.field("sale_date"), endDate.toISOString())
-          )
-        )
-        .collect();
+      console.log(`✅ Fetched complete data: ${tickets.length} tickets, ${returns.length} returns, ${giftCards.length} gift cards`);
+      
+      // Log sample of data for debugging
+      if (tickets.length > 0) {
+        console.log(`📊 Sample ticket dates: ${tickets.slice(0, 3).map(t => t.sale_date).join(', ')}`);
+      }
 
       // Return fresh data for client-side filtering and calculations
       return {
@@ -70,7 +53,9 @@ export const getSalesData = query({
           lastUpdated: Date.now()
         },
         cached: false,
-        fresh: true
+        fresh: true,
+        truncated: false, // No longer truncated!
+        complete: true // Flag to indicate we have complete data
       };
 
     } catch (error) {
@@ -93,6 +78,8 @@ export const getSalesData = query({
         },
         cached: false,
         fresh: false,
+        truncated: false,
+        complete: false,
         error: "Failed to load sales data"
       };
     }
@@ -114,26 +101,54 @@ export const refreshSalesData = mutation({
   }
 });
 
+// DEBUG: Test function to get data without date filtering
+export const testGetAllData = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    try {
+      console.log(`🧪 TEST: Fetching ALL data for user ${args.userId} (no date filter)`);
+
+      // Get ALL data without date filtering to test pagination
+      const [tickets, returns, giftCards] = await Promise.all([
+        getAllDataWithPagination(ctx, "ticket_history", args.userId),
+        getAllDataWithPagination(ctx, "return_tickets", args.userId),
+        getAllDataWithPagination(ctx, "gift_card_tickets", args.userId)
+      ]);
+
+      console.log(`🧪 TEST: Total data: ${tickets.length} tickets, ${returns.length} returns, ${giftCards.length} gift cards`);
+
+      return {
+        totalTickets: tickets.length,
+        totalReturns: returns.length,
+        totalGiftCards: giftCards.length,
+        sampleTicketDates: tickets.slice(0, 5).map(t => ({ id: t._id, date: t.sale_date })),
+        dateRange: {
+          earliest: tickets.length > 0 ? Math.min(...tickets.map(t => new Date(t.sale_date).getTime())) : null,
+          latest: tickets.length > 0 ? Math.max(...tickets.map(t => new Date(t.sale_date).getTime())) : null
+        }
+      };
+    } catch (error) {
+      console.error("TEST Error:", error);
+      return { error: error instanceof Error ? error.message : "Unknown error" };
+    }
+  }
+});
+
 // Get filter options (stores and sales reps) for the sales page
 export const getSalesFilterOptions = query({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
     try {
-      // Get ALL data from all tables to capture complete store and rep lists
+      console.log(`🔍 Fetching ALL filter options for user ${args.userId}`);
+
+      // Get ALL data from all tables using pagination to capture complete store and rep lists
       const [tickets, returns, giftCards] = await Promise.all([
-        ctx.db
-          .query("ticket_history")
-          .filter((q) => q.eq(q.field("user_id"), args.userId))
-          .collect(), // Get all tickets
-        ctx.db
-          .query("return_tickets")
-          .filter((q) => q.eq(q.field("user_id"), args.userId))
-          .collect(), // Get all returns
-        ctx.db
-          .query("gift_card_tickets")
-          .filter((q) => q.eq(q.field("user_id"), args.userId))
-          .collect() // Get all gift cards
+        getAllDataWithPagination(ctx, "ticket_history", args.userId),
+        getAllDataWithPagination(ctx, "return_tickets", args.userId),
+        getAllDataWithPagination(ctx, "gift_card_tickets", args.userId)
       ]);
+
+      console.log(`✅ Fetched complete filter data: ${tickets.length} tickets, ${returns.length} returns, ${giftCards.length} gift cards`);
 
       const storeSet = new Set<string>();
       const repSet = new Set<string>();
@@ -160,7 +175,9 @@ export const getSalesFilterOptions = query({
         stores,
         reps,
         totalStores: stores.length,
-        totalReps: reps.length
+        totalReps: reps.length,
+        truncated: false, // No longer truncated!
+        complete: true // Flag to indicate we have complete data
       };
     } catch (error) {
       console.error("Error in getSalesFilterOptions:", error);
@@ -169,6 +186,8 @@ export const getSalesFilterOptions = query({
         reps: [],
         totalStores: 0,
         totalReps: 0,
+        truncated: false,
+        complete: false,
         error: "Failed to load filter options"
       };
     }

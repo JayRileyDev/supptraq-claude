@@ -44,6 +44,7 @@ interface SalesFilters {
   salesRepId?: string; // Optional for store-level filters
   searchQuery?: string; // Optional for store-level filters
   includeReturns: boolean;
+  includeGiftCards: boolean;
 }
 
 interface ModernSalesFilterProps {
@@ -144,8 +145,11 @@ export function ModernSalesFilter({
   }, [filters, onFiltersChange, showRepSelection]);
 
   const handleIncludeReturnsChange = useCallback((includeReturns: boolean) => {
-    // No event object passed from Switch component, so no need for preventDefault
     onFiltersChange({ ...filters, includeReturns });
+  }, [filters, onFiltersChange]);
+
+  const handleIncludeGiftCardsChange = useCallback((includeGiftCards: boolean) => {
+    onFiltersChange({ ...filters, includeGiftCards });
   }, [filters, onFiltersChange]);
 
 
@@ -153,7 +157,8 @@ export function ModernSalesFilter({
     const clearedFilters: any = {
       dateRange: undefined,
       storeId: "all",
-      includeReturns: true
+      includeReturns: true,
+      includeGiftCards: true
     };
     
     // Only reset rep fields if they exist
@@ -171,6 +176,7 @@ export function ModernSalesFilter({
     if (filters.storeId !== "all") count++;
     if (showRepSelection && (filters.salesRepId !== "all" || filters.searchQuery)) count++;
     if (!filters.includeReturns) count++;
+    if (!filters.includeGiftCards) count++;
     return count;
   }, [filters, showRepSelection]);
 
@@ -202,7 +208,7 @@ export function ModernSalesFilter({
       </div>
 
       {/* Filter Controls */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         {/* Date Range Selector */}
         <div className="space-y-2">
           <Label className="text-sm font-medium">Date Range</Label>
@@ -214,8 +220,9 @@ export function ModernSalesFilter({
               } else if (value !== "custom") {
                 const days = parseInt(value);
                 const today = new Date();
-                const startDate = subDays(today, days - 1);
-                handleDateRangeChange({ from: startDate, to: today });
+                const startDate = startOfDay(subDays(today, days - 1));
+                const endDate = endOfDay(today);
+                handleDateRangeChange({ from: startDate, to: endDate });
               }
             }}
           >
@@ -290,6 +297,28 @@ export function ModernSalesFilter({
             </Label>
           </div>
         </div>
+
+        {/* Gift Cards Toggle */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Include Gift Cards</Label>
+          <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
+            <Switch
+              id="gift-cards-toggle"
+              checked={filters.includeGiftCards}
+              onCheckedChange={handleIncludeGiftCardsChange}
+            />
+            <Label 
+              htmlFor="gift-cards-toggle" 
+              className="text-sm cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            >
+              {filters.includeGiftCards ? "Including" : "Excluding"} gift cards
+            </Label>
+          </div>
+        </div>
       </div>
 
 
@@ -321,6 +350,11 @@ export function ModernSalesFilter({
                 {!filters.includeReturns && (
                   <Badge variant="outline" className="text-xs">
                     No returns
+                  </Badge>
+                )}
+                {!filters.includeGiftCards && (
+                  <Badge variant="outline" className="text-xs">
+                    No gift cards
                   </Badge>
                 )}
               </div>

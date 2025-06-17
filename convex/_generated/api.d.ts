@@ -19,8 +19,10 @@ import type * as inventory from "../inventory.js";
 import type * as inventoryMutations from "../inventoryMutations.js";
 import type * as inventoryQueries from "../inventoryQueries.js";
 import type * as salesCache from "../salesCache.js";
+import type * as salesDataComplete from "../salesDataComplete.js";
 import type * as salesQueries from "../salesQueries.js";
 import type * as salesRepQueries from "../salesRepQueries.js";
+import type * as salesUnified from "../salesUnified.js";
 import type * as sku_vendor_map from "../sku_vendor_map.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as ticketHistoryEnhanced from "../ticketHistoryEnhanced.js";
@@ -29,7 +31,9 @@ import type * as ticketParserFixed from "../ticketParserFixed.js";
 import type * as ticketStats from "../ticketStats.js";
 import type * as ticketValidation from "../ticketValidation.js";
 import type * as users from "../users.js";
+import type * as utils_dataAggregation from "../utils/dataAggregation.js";
 import type * as utils_inventoryOptimization from "../utils/inventoryOptimization.js";
+import type * as utils_pagination from "../utils/pagination.js";
 
 import type {
   ApiFromModules,
@@ -57,8 +61,10 @@ declare const fullApi: ApiFromModules<{
   inventoryMutations: typeof inventoryMutations;
   inventoryQueries: typeof inventoryQueries;
   salesCache: typeof salesCache;
+  salesDataComplete: typeof salesDataComplete;
   salesQueries: typeof salesQueries;
   salesRepQueries: typeof salesRepQueries;
+  salesUnified: typeof salesUnified;
   sku_vendor_map: typeof sku_vendor_map;
   subscriptions: typeof subscriptions;
   ticketHistoryEnhanced: typeof ticketHistoryEnhanced;
@@ -67,7 +73,9 @@ declare const fullApi: ApiFromModules<{
   ticketStats: typeof ticketStats;
   ticketValidation: typeof ticketValidation;
   users: typeof users;
+  "utils/dataAggregation": typeof utils_dataAggregation;
   "utils/inventoryOptimization": typeof utils_inventoryOptimization;
+  "utils/pagination": typeof utils_pagination;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 

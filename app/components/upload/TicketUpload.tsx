@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { useMutation } from 'convex/react'
 import { api } from '@/../convex/_generated/api'
 import { useAuth } from '@clerk/react-router'
-import { AlertCircle, CheckCircle, Info } from 'lucide-react'
+import { AlertCircle, CheckCircle } from 'lucide-react'
 
 interface UploadStats {
     total: number
@@ -25,6 +25,8 @@ export default function TicketUpload() {
     const [loading, setLoading] = useState(false)
     const [progress, setProgress] = useState(0)
     const [stats, setStats] = useState<UploadStats | null>(null)
+    const [uniqueTicketCount, setUniqueTicketCount] = useState<number | null>(null)
+    const [transactionSum, setTransactionSum] = useState<number | null>(null)
     const [errors, setErrors] = useState<any[]>([])
     const { userId } = useAuth()
     
@@ -101,6 +103,109 @@ export default function TicketUpload() {
                 }
             }
             let finalErrors: any[] = [...allErrors] // Include parsing errors
+            
+            // Calculate unique tickets and transaction sum following same logic as getTicketStats
+            // NOTE: If a ticket has no items and no gift cards, it won't appear in allEntries,
+            // so we can't include its transaction_total. This may cause a discrepancy between
+            // totalTickets (all parsed tickets) and the tickets we can calculate totals for.
+            const ticketTotals = new Map<string, number>()
+            const salesTickets = new Set<string>()
+            const returnTickets = new Set<string>()
+            const giftCardsByTicket = new Map<string, number>()
+            const allTicketNumbers = new Set<string>()
+            
+            // Process all entries to build ticket totals
+            allEntries.forEach(entry => {
+                const ticketNum = entry.ticket_number
+                if (!ticketNum) return
+                
+                allTicketNumbers.add(ticketNum)
+                
+                if (entry.type === 'sale') {
+                    salesTickets.add(ticketNum)
+                    // IMPORTANT: Only set the transaction total ONCE per ticket to avoid any duplication
+                    if (!ticketTotals.has(ticketNum)) {
+                        const total = entry.transaction_total || 0
+                        ticketTotals.set(ticketNum, total)
+                    }
+                } else if (entry.type === 'return') {
+                    returnTickets.add(ticketNum)
+                    // ONLY add transaction total if this ticket doesn't exist in sales table
+                    // This prevents double-counting when same ticket has both sales and returns
+                    if (!salesTickets.has(ticketNum)) {
+                        if (!ticketTotals.has(ticketNum)) {
+                            const total = entry.transaction_total || 0
+                            ticketTotals.set(ticketNum, total)
+                        }
+                    }
+                } else if (entry.type === 'gift_card') {
+                    // Accumulate gift card amounts per ticket
+                    const current = giftCardsByTicket.get(ticketNum) || 0
+                    giftCardsByTicket.set(ticketNum, current + (entry.giftcard_amount || 0))
+                }
+            })
+            
+            // Process each unique gift card ticket
+            giftCardsByTicket.forEach((totalGiftAmount, ticketNum) => {
+                allTicketNumbers.add(ticketNum)
+                
+                if (salesTickets.has(ticketNum)) {
+                    // Ticket exists in sales - DON'T add gift card amount
+                    // The transaction_total from ticket_history should already include gift cards
+                } else if (returnTickets.has(ticketNum)) {
+                    // Ticket exists in returns - DON'T add gift card amount
+                    // The transaction_total from return_tickets should already include gift cards
+                } else {
+                    // Pure gift card ticket (no sales or returns) - use total gift card amount as transaction total
+                    ticketTotals.set(ticketNum, totalGiftAmount)
+                    console.log(`📌 Gift card only ticket: ${ticketNum}, amount: $${totalGiftAmount}`)
+                }
+            })
+            
+            // Calculate total transaction amount from unique tickets
+            let totalTransactionAmount = 0
+            ticketTotals.forEach(total => {
+                totalTransactionAmount += total
+            })
+            
+            // Find tickets that were parsed but don't have transaction totals
+            const ticketsWithEntries = new Set<string>()
+            allEntries.forEach(entry => {
+                if (entry.ticket_number) {
+                    ticketsWithEntries.add(entry.ticket_number)
+                }
+            })
+            
+            // Check if there are any tickets missing from our calculation
+            const missingTickets = Array.from(ticketsWithEntries).filter(ticket => !ticketTotals.has(ticket))
+            
+            // Debug logging
+            console.log('🔍 Transaction sum calculation debug:', {
+                totalTicketsParsed: totalTickets,
+                ticketsWithEntries: ticketsWithEntries.size,
+                ticketTotalsSize: ticketTotals.size,
+                salesTickets: salesTickets.size,
+                returnTickets: returnTickets.size,
+                giftCardOnlyTickets: Array.from(giftCardsByTicket.keys()).filter(t => !salesTickets.has(t) && !returnTickets.has(t)).length,
+                totalTransactionAmount: totalTransactionAmount,
+                missingTickets: missingTickets.length > 0 ? missingTickets : 'None'
+            })
+            
+            // Log details about missing tickets
+            if (missingTickets.length > 0) {
+                missingTickets.forEach(ticketNum => {
+                    const ticketEntries = allEntries.filter(e => e.ticket_number === ticketNum)
+                    console.log(`❌ Missing ticket ${ticketNum}:`, {
+                        entryCount: ticketEntries.length,
+                        entryTypes: ticketEntries.map(e => e.type),
+                        transactionTotals: ticketEntries.map(e => e.transaction_total),
+                        giftCardAmounts: ticketEntries.filter(e => e.type === 'gift_card').map(e => e.giftcard_amount)
+                    })
+                })
+            }
+            
+            const uniqueTicketCount = allTicketNumbers.size
+            const transactionSum = totalTransactionAmount
 
             for (let i = 0; i < allEntries.length; i += BATCH_SIZE) {
                 const batch = allEntries.slice(i, Math.min(i + BATCH_SIZE, allEntries.length))
@@ -159,7 +264,9 @@ export default function TicketUpload() {
                 status: 'success' as const,
                 stats: totalStats,
                 errors: finalErrors,
-                message: `Successfully processed ${totalStats.inserted} entries from ${totalTickets} tickets`
+                message: `Successfully processed ${totalStats.inserted} entries from ${totalTickets} tickets`,
+                uniqueTicketCount,
+                transactionSum
             }
 
         } catch (err) {
@@ -177,6 +284,8 @@ export default function TicketUpload() {
         setLoading(true)
         setProgress(0)
         setStats(null)
+        setUniqueTicketCount(null)
+        setTransactionSum(null)
         setErrors([])
 
         const file = acceptedFiles[0]
@@ -207,15 +316,25 @@ export default function TicketUpload() {
                             
                             if (response.status === 'success' && response.stats) {
                                 setStats(response.stats)
+                                setUniqueTicketCount(response.uniqueTicketCount)
+                                setTransactionSum(response.transactionSum)
                                 
                                 const { stats } = response
                                 
-                                // Show detailed success message
+                                console.log('Upload successful, showing toast with:', {
+                                    uniqueTickets: response.uniqueTicketCount,
+                                    transactionSum: response.transactionSum,
+                                    stats
+                                })
+                                
+                                // Dismiss processing toast and show detailed success message
+                                toast.dismiss('processing')
                                 toast.success(
                                     <div className="space-y-2">
                                         <div className="font-semibold">✅ Upload Successful!</div>
                                         <div className="text-sm space-y-1">
-                                            <div>• {stats.inserted} tickets processed</div>
+                                            <div>• {stats.total} tickets processed</div>
+                                            <div>• Transaction Total: ${response.transactionSum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                                             <div>• {stats.byTable.ticket_history} items imported</div>
                                             <div>• {stats.byTable.return_tickets} returns identified</div>
                                             <div>• {stats.byTable.gift_card_tickets} gift cards found</div>
@@ -230,7 +349,7 @@ export default function TicketUpload() {
                                             Processed in {(processingTime / 1000).toFixed(1)}s
                                         </div>
                                     </div>,
-                                    { duration: 10000 }
+                                    { duration: 10000, id: 'upload-success' }
                                 )
                                 
                                 // Store errors if any
@@ -318,63 +437,6 @@ export default function TicketUpload() {
                 )}
             </div>
 
-            {/* Results Summary */}
-            {stats && !loading && (
-                <div className="mt-6 space-y-4">
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <div className="flex items-start gap-3">
-                            <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
-                            <div className="flex-1">
-                                <h3 className="font-semibold text-green-900">Upload Complete</h3>
-                                <div className="mt-2 grid grid-cols-2 gap-4 text-sm">
-                                    <div>
-                                        <span className="text-gray-600">Total Tickets:</span>
-                                        <span className="ml-2 font-medium">{stats.inserted}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-gray-600">Items:</span>
-                                        <span className="ml-2 font-medium">{stats.byTable.ticket_history}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-gray-600">Returns:</span>
-                                        <span className="ml-2 font-medium">{stats.byTable.return_tickets}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-gray-600">Gift Cards:</span>
-                                        <span className="ml-2 font-medium">{stats.byTable.gift_card_tickets}</span>
-                                    </div>
-                                </div>
-                                {stats.duplicates > 0 && (
-                                    <div className="mt-2 text-sm text-yellow-700 bg-yellow-50 rounded p-2">
-                                        <Info className="inline w-4 h-4 mr-1" />
-                                        {stats.duplicates} duplicate tickets were skipped
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Error Details */}
-                    {errors.length > 0 && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                            <div className="flex items-start gap-3">
-                                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
-                                <div className="flex-1">
-                                    <h3 className="font-semibold text-red-900">Some entries failed</h3>
-                                    <p className="text-sm text-red-700 mt-1">
-                                        {errors.length} entries could not be processed. Common issues include:
-                                    </p>
-                                    <ul className="mt-2 text-sm text-red-700 list-disc list-inside">
-                                        <li>Invalid ticket numbers</li>
-                                        <li>Missing required fields</li>
-                                        <li>Malformed data</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
         </div>
     )
 } 

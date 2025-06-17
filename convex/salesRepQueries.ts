@@ -1,5 +1,6 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
+import { getAllDataWithPagination } from "./utils/pagination";
 
 // Advanced sales rep performance analytics queries
 export const getRepPerformanceData = query({
@@ -34,69 +35,59 @@ export const getRepPerformanceData = query({
     const includeReturns = args.includeReturns !== false;
     const includeGiftCards = args.includeGiftCards !== false;
 
-    // MAJOR OPTIMIZATION: Apply filters at database level and limit data
-    let ticketQuery = ctx.db
-      .query("ticket_history")
-      .filter((q) => 
-        q.and(
-          q.eq(q.field("user_id"), args.userId),
-          q.gte(q.field("sale_date"), startDate.toISOString()),
-          q.lte(q.field("sale_date"), endDate.toISOString())
-        )
-      );
+    // Use pagination to get ALL ticket history data
+    const ticketHistory = await getAllDataWithPagination(
+      ctx, 
+      "ticket_history", 
+      args.userId, 
+      startDate.toISOString(), 
+      endDate.toISOString()
+    );
 
-    // Apply store filter at query level
-    if (args.storeId && args.storeId !== "all") {
-      ticketQuery = ticketQuery.filter((q) => q.eq(q.field("store_id"), args.storeId));
-    }
+    // Apply store filter if needed (since pagination doesn't support additional filters yet)
+    const filteredTicketHistory = args.storeId && args.storeId !== "all" 
+      ? ticketHistory.filter(ticket => ticket.store_id === args.storeId)
+      : ticketHistory;
 
-    const ticketHistory = await ticketQuery.take(2000); // Limit for performance
-
-    // MAJOR OPTIMIZATION: Apply filters at database level for returns
+    // Get ALL returns data using pagination
     let returnTickets: any[] = [];
     if (includeReturns) {
-      let returnsQuery = ctx.db
-        .query("return_tickets")
-        .filter((q) => 
-          q.and(
-            q.eq(q.field("user_id"), args.userId),
-            q.gte(q.field("sale_date"), startDate.toISOString()),
-            q.lte(q.field("sale_date"), endDate.toISOString())
-          )
-        );
+      const allReturns = await getAllDataWithPagination(
+        ctx, 
+        "return_tickets", 
+        args.userId, 
+        startDate.toISOString(), 
+        endDate.toISOString()
+      );
 
-      if (args.storeId && args.storeId !== "all") {
-        returnsQuery = returnsQuery.filter((q) => q.eq(q.field("store_id"), args.storeId));
-      }
-
-      returnTickets = await returnsQuery.take(500); // Limit for performance
+      // Apply store filter if needed
+      returnTickets = args.storeId && args.storeId !== "all" 
+        ? allReturns.filter(ticket => ticket.store_id === args.storeId)
+        : allReturns;
     }
 
-    // MAJOR OPTIMIZATION: Apply filters at database level for gift cards
+    // Get ALL gift cards data using pagination
     let giftCardTickets: any[] = [];
     if (includeGiftCards) {
-      let giftCardsQuery = ctx.db
-        .query("gift_card_tickets")
-        .filter((q) => 
-          q.and(
-            q.eq(q.field("user_id"), args.userId),
-            q.gte(q.field("sale_date"), startDate.toISOString()),
-            q.lte(q.field("sale_date"), endDate.toISOString())
-          )
-        );
+      const allGiftCards = await getAllDataWithPagination(
+        ctx, 
+        "gift_card_tickets", 
+        args.userId, 
+        startDate.toISOString(), 
+        endDate.toISOString()
+      );
 
-      if (args.storeId && args.storeId !== "all") {
-        giftCardsQuery = giftCardsQuery.filter((q) => q.eq(q.field("store_id"), args.storeId));
-      }
-
-      giftCardTickets = await giftCardsQuery.take(500); // Limit for performance
+      // Apply store filter if needed
+      giftCardTickets = args.storeId && args.storeId !== "all" 
+        ? allGiftCards.filter(ticket => ticket.store_id === args.storeId)
+        : allGiftCards;
     }
 
     // MAJOR OPTIMIZATION: Limit sales rep metadata fetch
     const salesReps = await ctx.db
       .query("sales_reps")
       .filter((q) => q.eq(q.field("user"), args.userId))
-      .take(100); // Limit for performance
+      .collect(); // Get ALL data
 
     // Create rep lookup map
     const repMetadata = new Map();
@@ -112,7 +103,7 @@ export const getRepPerformanceData = query({
     const repPerformance = new Map();
 
     // Process regular sales
-    ticketHistory.forEach(sale => {
+    filteredTicketHistory.forEach(sale => {
       if (!sale.sales_rep) return;
       
       if (!repPerformance.has(sale.sales_rep)) {
@@ -420,32 +411,32 @@ export const getRepDetails = query({
       startDate.setDate(startDate.getDate() - 30);
     }
 
-    // Get all transactions for this rep
-    const transactions = await ctx.db
-      .query("ticket_history")
-      .filter((q) => 
-        q.and(
-          q.eq(q.field("user_id"), args.userId),
-          q.eq(q.field("sales_rep"), args.repName),
-          q.gte(q.field("sale_date"), startDate.toISOString()),
-          q.lte(q.field("sale_date"), endDate.toISOString())
-        )
-      )
-      .order("desc")
-      .take(100);
+    // Get all transactions for this rep using pagination
+    const allTransactions = await getAllDataWithPagination(
+      ctx, 
+      "ticket_history", 
+      args.userId, 
+      startDate.toISOString(), 
+      endDate.toISOString()
+    );
+    
+    // Filter by sales rep
+    const transactions = allTransactions
+      .filter(t => t.sales_rep === args.repName)
+      .sort((a, b) => new Date(b.sale_date).getTime() - new Date(a.sale_date).getTime());
 
-    const returns = await ctx.db
-      .query("return_tickets")
-      .filter((q) => 
-        q.and(
-          q.eq(q.field("user_id"), args.userId),
-          q.eq(q.field("sales_rep"), args.repName),
-          q.gte(q.field("sale_date"), startDate.toISOString()),
-          q.lte(q.field("sale_date"), endDate.toISOString())
-        )
-      )
-      .order("desc")
-      .take(50);
+    const allReturns = await getAllDataWithPagination(
+      ctx, 
+      "return_tickets", 
+      args.userId, 
+      startDate.toISOString(), 
+      endDate.toISOString()
+    );
+    
+    // Filter by sales rep
+    const returns = allReturns
+      .filter(r => r.sales_rep === args.repName)
+      .sort((a, b) => new Date(b.sale_date).getTime() - new Date(a.sale_date).getTime());
 
     // Get rep metadata
     const repData = await ctx.db

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { cn } from "~/lib/utils";
+import { getAvgTicketColor } from "~/utils/avg-ticket-colors";
 import { Store, User, ArrowUpDown, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -231,10 +232,7 @@ function StorePerformanceTable({ data }: { data: StorePerformanceData[] }) {
                       {store.storeName || `Store ${store.storeId}`}
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className={cn(
-                        "font-mono",
-                        store.avgTicketSize < 70 && "text-blue-600 dark:text-blue-400"
-                      )}>
+                      <span className={cn("font-mono", getAvgTicketColor(store.avgTicketSize))}>
                         ${Math.round(store.avgTicketSize)}
                       </span>
                     </TableCell>
@@ -488,10 +486,7 @@ function RepPerformanceTable({ data }: { data: RepPerformanceData[] }) {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className={cn(
-                        "font-mono",
-                        rep.avgTicketSize < 70 && "text-blue-600 dark:text-blue-400"
-                      )}>
+                      <span className={cn("font-mono", getAvgTicketColor(rep.avgTicketSize))}>
                         ${Math.round(rep.avgTicketSize)}
                       </span>
                     </TableCell>

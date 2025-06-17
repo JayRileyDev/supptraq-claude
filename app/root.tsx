@@ -15,6 +15,7 @@ import type { Route } from "./+types/root";
 import "./app.css";
 import { Analytics } from "@vercel/analytics/react";
 import { ThemeProvider } from "./lib/theme-provider";
+import { Toaster } from "sonner";
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
@@ -115,6 +116,11 @@ export default function App({ loaderData }: Route.ComponentProps) {
           storageKey="supptraq-ui-theme"
         >
           <Outlet />
+          <Toaster 
+            position="top-right"
+            richColors
+            expand={true}
+          />
         </ThemeProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>

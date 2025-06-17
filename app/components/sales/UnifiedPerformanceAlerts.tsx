@@ -260,7 +260,6 @@ export function UnifiedPerformanceAlerts({}: UnifiedPerformanceAlertsProps) {
       // Get the rep day data from Convex using the client
       console.log('Fetching rep day data from Convex...');
       const repDayData = await convex.query(api.salesUnified.getRepDayExportData, {
-        userId,
         repName,
         date
       });

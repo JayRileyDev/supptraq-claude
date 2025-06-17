@@ -1,9 +1,9 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
+import { getUserContext } from "./accessControl";
 
 export const getSalesData = query({
   args: { 
-    userId: v.string(),
     dateRange: v.optional(v.object({
       start: v.string(),
       end: v.string()
@@ -12,6 +12,8 @@ export const getSalesData = query({
     salesRep: v.optional(v.string())
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
+    
     // Set default date range to last 30 days
     const endDate = args.dateRange?.end ? new Date(args.dateRange.end) : new Date();
     const startDate = args.dateRange?.start ? new Date(args.dateRange.start) : new Date();
@@ -28,7 +30,7 @@ export const getSalesData = query({
       .query("ticket_history")
       .filter((q) => 
         q.and(
-          q.eq(q.field("user_id"), args.userId),
+          q.eq(q.field("franchiseId"), userContext.franchiseId),
           q.gte(q.field("sale_date"), startDate.toISOString()),
           q.lte(q.field("sale_date"), endDate.toISOString())
         )
@@ -38,7 +40,7 @@ export const getSalesData = query({
       .query("ticket_history")
       .filter((q) => 
         q.and(
-          q.eq(q.field("user_id"), args.userId),
+          q.eq(q.field("franchiseId"), userContext.franchiseId),
           q.gte(q.field("sale_date"), previousStartDate.toISOString()),
           q.lte(q.field("sale_date"), previousEndDate.toISOString())
         )
@@ -64,7 +66,7 @@ export const getSalesData = query({
       .query("return_tickets")
       .filter((q) => 
         q.and(
-          q.eq(q.field("user_id"), args.userId),
+          q.eq(q.field("franchiseId"), userContext.franchiseId),
           q.gte(q.field("sale_date"), startDate.toISOString()),
           q.lte(q.field("sale_date"), endDate.toISOString())
         )
@@ -74,7 +76,7 @@ export const getSalesData = query({
       .query("gift_card_tickets")
       .filter((q) => 
         q.and(
-          q.eq(q.field("user_id"), args.userId),
+          q.eq(q.field("franchiseId"), userContext.franchiseId),
           q.gte(q.field("sale_date"), startDate.toISOString()),
           q.lte(q.field("sale_date"), endDate.toISOString())
         )

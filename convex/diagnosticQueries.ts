@@ -1,24 +1,24 @@
 import { query } from './_generated/server';
 import { v } from 'convex/values';
+import { getUserContext } from './accessControl';
 
 // Find tickets with zero or missing transaction totals
 export const findProblematicTickets = query({
-  args: {
-    user_id: v.string()
-  },
-  handler: async (ctx, { user_id }) => {
+  args: {},
+  handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     // Get all tickets from all tables with reasonable limits for diagnostics
     const [ticketHistory, returnTickets, giftCards] = await Promise.all([
       ctx.db.query('ticket_history')
-        .filter(q => q.eq(q.field('user_id'), user_id))
+        .filter(q => q.eq(q.field('franchiseId'), userContext.franchiseId))
         .order('desc')
         .take(10000), // Reasonable limit for diagnostic analysis
       ctx.db.query('return_tickets')
-        .filter(q => q.eq(q.field('user_id'), user_id))
+        .filter(q => q.eq(q.field('franchiseId'), userContext.franchiseId))
         .order('desc')
         .take(5000),
       ctx.db.query('gift_card_tickets')
-        .filter(q => q.eq(q.field('user_id'), user_id))
+        .filter(q => q.eq(q.field('franchiseId'), userContext.franchiseId))
         .order('desc')
         .take(3000)
     ]);
@@ -104,10 +104,10 @@ export const findProblematicTickets = query({
 // Find specific tickets by number
 export const findSpecificTickets = query({
   args: {
-    ticket_numbers: v.array(v.string()),
-    user_id: v.string()
+    ticket_numbers: v.array(v.string())
   },
-  handler: async (ctx, { ticket_numbers, user_id }) => {
+  handler: async (ctx, { ticket_numbers }) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     const results: any[] = [];
 
     for (const ticketNum of ticket_numbers) {
@@ -115,19 +115,19 @@ export const findSpecificTickets = query({
         ctx.db.query('ticket_history')
           .filter(q => q.and(
             q.eq(q.field('ticket_number'), ticketNum),
-            q.eq(q.field('user_id'), user_id)
+            q.eq(q.field('franchiseId'), userContext.franchiseId)
           ))
           .collect(),
         ctx.db.query('return_tickets')
           .filter(q => q.and(
             q.eq(q.field('ticket_number'), ticketNum),
-            q.eq(q.field('user_id'), user_id)
+            q.eq(q.field('franchiseId'), userContext.franchiseId)
           ))
           .collect(),
         ctx.db.query('gift_card_tickets')
           .filter(q => q.and(
             q.eq(q.field('ticket_number'), ticketNum),
-            q.eq(q.field('user_id'), user_id)
+            q.eq(q.field('franchiseId'), userContext.franchiseId)
           ))
           .collect()
       ]);
@@ -168,22 +168,21 @@ export const findSpecificTickets = query({
 
 // Compare database totals with expected totals
 export const compareStatTotals = query({
-  args: {
-    user_id: v.string()
-  },
-  handler: async (ctx, { user_id }) => {
+  args: {},
+  handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     // Get raw counts and sums from each table with limits
     const [ticketHistory, returnTickets, giftCards] = await Promise.all([
       ctx.db.query('ticket_history')
-        .filter(q => q.eq(q.field('user_id'), user_id))
+        .filter(q => q.eq(q.field('franchiseId'), userContext.franchiseId))
         .order('desc')
         .take(15000), // Higher limit for comparison analysis
       ctx.db.query('return_tickets')
-        .filter(q => q.eq(q.field('user_id'), user_id))
+        .filter(q => q.eq(q.field('franchiseId'), userContext.franchiseId))
         .order('desc')
         .take(8000),
       ctx.db.query('gift_card_tickets')
-        .filter(q => q.eq(q.field('user_id'), user_id))
+        .filter(q => q.eq(q.field('franchiseId'), userContext.franchiseId))
         .order('desc')
         .take(5000)
     ]);

@@ -1,5 +1,6 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
+import { getUserContext } from "./accessControl";
 import { 
   getAllTicketData, 
   applyFilters, 
@@ -154,7 +155,6 @@ export interface CompleteSalesData {
 // Main unified query that fetches and processes ALL data once
 export const getCompleteSalesData = query({
   args: { 
-    userId: v.string(),
     dateRange: v.optional(v.object({
       start: v.string(),
       end: v.string()
@@ -165,9 +165,11 @@ export const getCompleteSalesData = query({
     includeGiftCards: v.optional(v.boolean())
   },
   handler: async (ctx, args): Promise<CompleteSalesData> => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
+    
     try {
       // Get ALL ticket data from all three tables ONCE
-      const allTicketData = await getAllTicketData(ctx.db, args.userId);
+      const allTicketData = await getAllTicketData(ctx.db, userContext.franchiseId);
       
       // Apply filters ONCE
       const filters: FilterOptions = {

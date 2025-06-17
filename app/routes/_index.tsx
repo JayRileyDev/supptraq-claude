@@ -1,5 +1,3 @@
-import { useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import { Navbar } from "~/components/homepage/navbar";
 import Hero from "~/components/homepage/hero";
 import ProblemSection from "~/components/homepage/problem-section";
@@ -14,8 +12,6 @@ import Footer from "~/components/homepage/footer";
 // Homepage is public - no auth needed
 
 export default function HomePage() {
-  const plans = useQuery(api.subscriptions.getAvailablePlansQuery);
-
   return (
     <main className="min-h-screen">
       <Navbar />

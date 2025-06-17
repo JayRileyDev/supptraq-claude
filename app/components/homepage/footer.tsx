@@ -60,9 +60,9 @@ export default function FooterSection() {
                   >
                     <div className="relative">
                       <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 opacity-20 blur" />
-                      <img src="/rsk.png" alt="SuppTraq Logo" className="relative h-12 w-12" />
+                      <img src="/rsk.png" alt="Supptraq Logo" className="relative h-12 w-12" />
                     </div>
-                    <span className="text-2xl font-bold text-white">SuppTraq</span>
+                    <span className="text-2xl font-bold text-white">Supptraq</span>
                   </motion.div>
                 </Link>
 
@@ -282,7 +282,7 @@ export default function FooterSection() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center space-x-6">
               <p className="text-white/60 text-sm">
-                © {new Date().getFullYear()} SuppTraq. All rights reserved.
+                © {new Date().getFullYear()} Supptraq. All rights reserved.
               </p>
               <div className="hidden md:flex items-center space-x-1 text-white/40 text-xs">
                 <span>Made with</span>

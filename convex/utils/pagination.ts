@@ -2,16 +2,16 @@
 export async function getAllDataWithPagination(
   ctx: any,
   tableName: string,
-  userId: string,
+  franchiseId: string,
   startDate?: string,
   endDate?: string
 ): Promise<any[]> {
-  console.log(`📋 BRUTE FORCE: Getting ALL ${tableName} for user ${userId}`);
+  console.log(`📋 BRUTE FORCE: Getting ALL ${tableName} for franchise ${franchiseId}`);
 
   try {
     // Build base query
     let query = ctx.db.query(tableName);
-    query = query.filter((q: any) => q.eq(q.field("user_id"), userId));
+    query = query.filter((q: any) => q.eq(q.field("franchiseId"), franchiseId));
     
     if (startDate && endDate) {
       query = query.filter((q: any) => 

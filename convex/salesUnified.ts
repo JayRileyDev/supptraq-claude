@@ -1,5 +1,6 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
+import { getUserContext } from "./accessControl";
 import { 
   getAllTicketData, 
   applyFilters, 
@@ -12,7 +13,6 @@ import {
 // Returns pre-aggregated data to avoid 8192 item limit
 export const getSalesMetrics = query({
   args: { 
-    userId: v.string(),
     dateRange: v.optional(v.object({
       start: v.string(),
       end: v.string()
@@ -23,9 +23,10 @@ export const getSalesMetrics = query({
     includeGiftCards: v.optional(v.boolean())
   },
   handler: async (ctx, args): Promise<SalesMetrics> => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     try {
       // Get ALL ticket data from all three tables
-      const allTicketData = await getAllTicketData(ctx.db, args.userId);
+      const allTicketData = await getAllTicketData(ctx.db, userContext.franchiseId);
       
       // Apply filters
       const filters: FilterOptions = {
@@ -49,11 +50,12 @@ export const getSalesMetrics = query({
 
 // Get filter options (stores and sales reps available)
 export const getFilterOptions = query({
-  args: { userId: v.string() },
+  args: {},
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     try {
       // Get all ticket data to extract filter options
-      const allTicketData = await getAllTicketData(ctx.db, args.userId);
+      const allTicketData = await getAllTicketData(ctx.db, userContext.franchiseId);
       
       const stores = new Set<string>();
       const salesReps = new Set<string>();
@@ -90,15 +92,15 @@ export const getFilterOptions = query({
 // Performance alerts data - $70 avg ticket benchmark
 export const getPerformanceAlertsData = query({
   args: { 
-    userId: v.string(),
     dateRange: v.optional(v.object({
       start: v.string(),
       end: v.string()
     }))
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     try {
-      const allTicketData = await getAllTicketData(ctx.db, args.userId);
+      const allTicketData = await getAllTicketData(ctx.db, userContext.franchiseId);
       
       // Apply date filter if provided
       let filteredData = allTicketData;
@@ -365,13 +367,13 @@ export const getPerformanceAlertsData = query({
 // Export data for PDF reports - single day for coaching
 export const getRepDayExportData = query({
   args: {
-    userId: v.string(),
     repName: v.string(),
     date: v.string() // Single date in YYYY-MM-DD format
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     try {
-      const allTicketData = await getAllTicketData(ctx.db, args.userId);
+      const allTicketData = await getAllTicketData(ctx.db, userContext.franchiseId);
       
       // Filter for specific rep and exact date - ALL tickets for export
       const repDayData = allTicketData.filter(ticket => 
@@ -513,15 +515,15 @@ export const getRepDayExportData = query({
 // Get leaderboard data for top performers
 export const getLeaderboardData = query({
   args: { 
-    userId: v.string(),
     dateRange: v.optional(v.object({
       start: v.string(),
       end: v.string()
     }))
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     try {
-      const allTicketData = await getAllTicketData(ctx.db, args.userId);
+      const allTicketData = await getAllTicketData(ctx.db, userContext.franchiseId);
       
       // Apply date filter if provided
       let filteredData = allTicketData;
@@ -829,15 +831,15 @@ export const getLeaderboardData = query({
 // Get detailed store performance data for table
 export const getStorePerformanceData = query({
   args: { 
-    userId: v.string(),
     dateRange: v.optional(v.object({
       start: v.string(),
       end: v.string()
     }))
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     try {
-      const allTicketData = await getAllTicketData(ctx.db, args.userId);
+      const allTicketData = await getAllTicketData(ctx.db, userContext.franchiseId);
       
       // Apply date filter if provided
       let filteredData = allTicketData;
@@ -1018,15 +1020,15 @@ export const getStorePerformanceData = query({
 // Get detailed sales rep performance data for table
 export const getRepPerformanceData = query({
   args: { 
-    userId: v.string(),
     dateRange: v.optional(v.object({
       start: v.string(),
       end: v.string()
     }))
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     try {
-      const allTicketData = await getAllTicketData(ctx.db, args.userId);
+      const allTicketData = await getAllTicketData(ctx.db, userContext.franchiseId);
       
       // Apply date filter if provided
       let filteredData = allTicketData;
@@ -1242,7 +1244,6 @@ export const getRepPerformanceData = query({
 // Get rep performance by store for scheduling optimization
 export const getSchedulingOptimizerData = query({
   args: { 
-    userId: v.string(),
     dateRange: v.optional(v.object({
       start: v.string(),
       end: v.string()
@@ -1250,8 +1251,9 @@ export const getSchedulingOptimizerData = query({
     minTickets: v.optional(v.number()) // Minimum tickets to be considered
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     try {
-      const allTicketData = await getAllTicketData(ctx.db, args.userId);
+      const allTicketData = await getAllTicketData(ctx.db, userContext.franchiseId);
       const minTicketThreshold = args.minTickets || 5; // Default: rep must have 5+ tickets at a store
       
       // Apply date filter if provided
@@ -1495,10 +1497,10 @@ export const getSchedulingOptimizerData = query({
 // Get daily rep performance report
 export const getDailyRepReport = query({
   args: { 
-    userId: v.string(),
     date: v.string() // YYYY-MM-DD format
   },
-  handler: async (ctx, { userId, date }) => {
+  handler: async (ctx, { date }) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     try {
       // Parse the date and create start/end of day boundaries
       const targetDate = new Date(date);
@@ -1511,7 +1513,7 @@ export const getDailyRepReport = query({
       console.log(`Getting daily report for ${date}, UTC range: ${startOfDay.toISOString()} to ${endOfDay.toISOString()}`);
 
       // Get ALL ticket data from all three tables (same as other calculations)
-      const allTicketData = await getAllTicketData(ctx.db, userId);
+      const allTicketData = await getAllTicketData(ctx.db, userContext.franchiseId);
       
       // Filter by date range
       const dateFilteredData = allTicketData.filter(ticket => {

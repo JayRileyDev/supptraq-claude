@@ -65,7 +65,6 @@ export default function TicketUpload() {
                 toast.info(`Parsing chunk ${chunkNum}/${totalChunks}...`, { id: 'processing' })
 
                 const parseResponse = await parseTickets({
-                    user_id: userId,
                     rows: chunk,
                     dynamicProductNames
                 })
@@ -241,7 +240,6 @@ export default function TicketUpload() {
             try {
                 const storesAffected = Array.from(new Set(allEntries.map(e => e.store_id).filter(Boolean)))
                 await createUploadRecord({
-                    user_id: userId,
                     upload_name: `Ticket Upload - ${new Date().toLocaleDateString()}`,
                     total_tickets: totalTickets,
                     total_entries: totalStats.inserted,
@@ -254,7 +252,7 @@ export default function TicketUpload() {
 
             // Trigger dashboard metrics recalculation
             try {
-                await triggerMetricsUpdate({ userId })
+                await triggerMetricsUpdate({})
                 console.log('✅ Triggered dashboard metrics update')
             } catch (error) {
                 console.warn('Failed to trigger metrics update:', error)

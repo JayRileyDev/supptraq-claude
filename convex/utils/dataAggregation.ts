@@ -53,7 +53,7 @@ export interface FilterOptions {
 // Get all ticket data from the three tables safely
 export async function getAllTicketData(
   db: DatabaseReader,
-  userId: string
+  franchiseId: string
 ): Promise<UnifiedTicketLine[]> {
   const allData: UnifiedTicketLine[] = [];
   
@@ -62,7 +62,7 @@ export async function getAllTicketData(
     try {
       const tickets = await db
         .query("ticket_history")
-        .filter((q: any) => q.eq(q.field("user_id"), userId))
+        .filter((q: any) => q.eq(q.field("franchiseId"), franchiseId))
         .collect();
       
       tickets.forEach((ticket: any) => {
@@ -75,7 +75,7 @@ export async function getAllTicketData(
       // Fallback to take with large limit
       const tickets = await db
         .query("ticket_history")
-        .filter((q: any) => q.eq(q.field("user_id"), userId))
+        .filter((q: any) => q.eq(q.field("franchiseId"), franchiseId))
         .take(10000);
       
       tickets.forEach((ticket: any) => {
@@ -90,7 +90,7 @@ export async function getAllTicketData(
     try {
       const returns = await db
         .query("return_tickets")
-        .filter((q: any) => q.eq(q.field("user_id"), userId))
+        .filter((q: any) => q.eq(q.field("franchiseId"), franchiseId))
         .collect();
       
       returns.forEach((ticket: any) => {
@@ -102,7 +102,7 @@ export async function getAllTicketData(
     } catch (collectError) {
       const returns = await db
         .query("return_tickets")
-        .filter((q: any) => q.eq(q.field("user_id"), userId))
+        .filter((q: any) => q.eq(q.field("franchiseId"), franchiseId))
         .take(2000);
       
       returns.forEach((ticket: any) => {
@@ -117,7 +117,7 @@ export async function getAllTicketData(
     try {
       const giftCards = await db
         .query("gift_card_tickets")
-        .filter((q: any) => q.eq(q.field("user_id"), userId))
+        .filter((q: any) => q.eq(q.field("franchiseId"), franchiseId))
         .collect();
       
       giftCards.forEach((ticket: any) => {
@@ -129,7 +129,7 @@ export async function getAllTicketData(
     } catch (collectError) {
       const giftCards = await db
         .query("gift_card_tickets")
-        .filter((q: any) => q.eq(q.field("user_id"), userId))
+        .filter((q: any) => q.eq(q.field("franchiseId"), franchiseId))
         .take(1000);
       
       giftCards.forEach((ticket: any) => {

@@ -64,38 +64,6 @@ const createCheckout = async ({
   return result;
 };
 
-export const getAvailablePlansQuery = query({
-  handler: async (ctx) => {
-    const polar = new Polar({
-      server: "sandbox",
-      accessToken: process.env.POLAR_ACCESS_TOKEN,
-    });
-
-    const { result } = await polar.products.list({
-      organizationId: process.env.POLAR_ORGANIZATION_ID,
-      isArchived: false,
-    });
-
-    // Transform the data to remove Date objects and keep only needed fields
-    const cleanedItems = result.items.map((item) => ({
-      id: item.id,
-      name: item.name,
-      description: item.description,
-      isRecurring: item.isRecurring,
-      prices: item.prices.map((price: any) => ({
-        id: price.id,
-        amount: price.priceAmount,
-        currency: price.priceCurrency,
-        interval: price.recurringInterval,
-      })),
-    }));
-
-    return {
-      items: cleanedItems,
-      pagination: result.pagination,
-    };
-  },
-});
 
 export const getAvailablePlans = action({
   handler: async (ctx) => {
@@ -510,5 +478,117 @@ export const createCustomerPortalUrl = action({
       console.error("Error creating customer session:", error);
       throw new Error("Failed to create customer session");
     }
+  },
+});
+
+// Simple test function to verify user exists
+export const testUserExists = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", args.userId))
+      .unique();
+    
+    return {
+      exists: !!user,
+      user: user ? {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        orgId: user.orgId,
+        franchiseId: user.franchiseId,
+        role: user.role
+      } : null
+    };
+  },
+});
+
+// Admin function to manually grant a subscription (bypass payment)
+export const grantFreeSubscription = mutation({
+  args: {
+    userId: v.string(), // Clerk user ID (tokenIdentifier)
+    planType: v.optional(v.string()), // "basic", "pro", etc.
+    durationMonths: v.optional(v.number()), // Default 12 months
+  },
+  handler: async (ctx, args) => {
+    // Check if user exists in our database
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", args.userId))
+      .unique();
+
+    if (!user) {
+      throw new Error(`User not found with ID: ${args.userId}`);
+    }
+
+    // Check if user already has an active subscription
+    const existingSubscription = await ctx.db
+      .query("subscriptions")
+      .withIndex("userId", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (existingSubscription && existingSubscription.status === "active") {
+      throw new Error("User already has an active subscription");
+    }
+
+    // Create subscription record
+    const now = Date.now();
+    const durationMs = (args.durationMonths || 12) * 30 * 24 * 60 * 60 * 1000; // Default 12 months
+    const endDate = now + durationMs;
+
+    const subscriptionId = await ctx.db.insert("subscriptions", {
+      userId: args.userId,
+      polarId: `manual_${now}`, // Unique manual ID
+      polarPriceId: `free_${args.planType || 'basic'}`,
+      currency: "USD",
+      interval: "month",
+      status: "active",
+      currentPeriodStart: now,
+      currentPeriodEnd: endDate,
+      cancelAtPeriodEnd: false,
+      amount: 0, // Free subscription
+      startedAt: now,
+      metadata: {
+        type: "manual_grant",
+        grantedAt: new Date().toISOString(),
+        planType: args.planType || "basic",
+        durationMonths: args.durationMonths || 12,
+      },
+    });
+
+    return {
+      success: true,
+      subscriptionId,
+      message: `Free subscription granted to ${user.email || user.name || args.userId} for ${args.durationMonths || 12} months`,
+    };
+  },
+});
+
+// Helper function to list all users (for admin purposes)
+export const getAllUsers = query({
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    return users.map(user => ({
+      id: user._id,
+      tokenIdentifier: user.tokenIdentifier,
+      name: user.name,
+      email: user.email,
+      orgId: user.orgId,
+      role: user.role,
+    }));
+  },
+});
+
+// Helper function to check subscription status for any user (admin)
+export const getSubscriptionByUserId = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    const subscription = await ctx.db
+      .query("subscriptions")
+      .withIndex("userId", (q) => q.eq("userId", args.userId))
+      .first();
+    
+    return subscription;
   },
 });

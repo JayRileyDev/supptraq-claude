@@ -151,7 +151,7 @@ export function DailyRepReport({}: DailyRepReportProps) {
   
   const reportData = useQuery(
     api.salesUnified.getDailyRepReport,
-    userId && queryDate ? { userId, date: queryDate } : "skip"
+    queryDate ? { date: queryDate } : "skip"
   );
 
   const handleGenerateReport = () => {

@@ -157,7 +157,7 @@ export const Navbar = () => {
                   "text-xl font-bold transition-colors duration-500",
                   isScrolled && isOverLightSection ? "text-white" : "text-white"
                 )}>
-                  SuppTraq
+                  Supptraq
                 </span>
               </Link>
 

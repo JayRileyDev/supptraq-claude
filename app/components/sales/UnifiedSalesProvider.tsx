@@ -97,7 +97,6 @@ export function UnifiedSalesProvider({ children }: { children: ReactNode }) {
   const completeSalesData = useQuery(
     api.salesDataComplete.getCompleteSalesData,
     userId ? {
-      userId,
       dateRange: filters.dateRange,
       storeId: filters.storeId,
       salesRepId: filters.salesRepId,

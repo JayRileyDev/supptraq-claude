@@ -9,26 +9,74 @@ import { api } from "../../../convex/_generated/api";
 import { Outlet } from "react-router";
 
 export async function loader(args: any) {
-  const { userId } = await getAuth(args);
+  console.log("🏁 Dashboard loader starting...");
+  const { userId, getToken } = await getAuth(args);
+  console.log("🔑 UserId from auth:", userId);
 
   // Redirect to sign-in if not authenticated
   if (!userId) {
+    console.log("❌ No userId, redirecting to sign-in");
     throw redirect("/sign-in");
   }
 
   const convex = new ConvexHttpClient(process.env.VITE_CONVEX_URL!);
-
-  // Only check subscription status - skip expensive Clerk user fetch
-  // User data is already available client-side via useUser()
-  const subscriptionStatus = await convex.query(api.subscriptions.checkUserSubscriptionStatus, { userId });
-
-  // Redirect to subscription-required if no active subscription
-  if (!subscriptionStatus?.hasActiveSubscription) {
-    throw redirect("/subscription-required");
+  
+  // Set auth token for server-side queries
+  const token = await getToken({ template: "convex" });
+  if (token) {
+    convex.setAuth(token);
   }
 
-  // Return minimal data - user info available client-side
-  return { hasSubscription: true };
+  try {
+    console.log("🔍 Checking if user exists in database...");
+    // Check if user exists in our database - use getCurrentUser like onboarding does
+    const user = await convex.query(api.users.getCurrentUser);
+    console.log("👤 User from database:", user);
+
+    // If user doesn't exist, redirect to onboarding to create user
+    if (!user) {
+      console.log("❌ User doesn't exist, redirecting to onboarding");
+      throw redirect("/onboarding");
+    }
+
+    // Check if user setup is complete (has org, franchise, role)
+    console.log("🔍 Checking user setup completeness:", {
+      orgId: !!user.orgId,
+      franchiseId: !!user.franchiseId,
+      role: !!user.role
+    });
+    
+    if (!user.orgId || !user.franchiseId || !user.role) {
+      console.log("❌ User setup incomplete, redirecting to onboarding");
+      throw redirect("/onboarding");
+    }
+
+    console.log("🔍 Checking subscription status...");
+    // Check subscription status
+    const subscriptionStatus = await convex.query(api.subscriptions.checkUserSubscriptionStatus, { userId });
+    console.log("💳 Subscription status:", subscriptionStatus);
+
+    // Redirect to subscription-required if no active subscription
+    if (!subscriptionStatus?.hasActiveSubscription) {
+      console.log("❌ No active subscription, redirecting to subscription-required");
+      throw redirect("/subscription-required");
+    }
+
+    console.log("✅ All checks passed, allowing dashboard access");
+    // Return minimal data - user info available client-side
+    return { hasSubscription: true };
+  } catch (error) {
+    // Check if this is a Response object (redirect)
+    if (error instanceof Response) {
+      console.log("🔄 Redirect response detected, passing through");
+      // This is a redirect response, let it pass through
+      throw error;
+    }
+    
+    // Only catch actual errors, not redirects
+    console.error("❌ Dashboard loader error:", error);
+    throw redirect("/onboarding");
+  }
 }
 
 export default function DashboardLayout() {

@@ -2,6 +2,7 @@ import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 import type { Doc } from './_generated/dataModel'
 import { parse } from 'date-fns'
+import { getUserContext } from './accessControl'
 
 // ===== Core Parsing Logic (Consolidated) =====
 interface ParsingContext {
@@ -857,9 +858,7 @@ function validateTicketHistoryEntry(entry: any): string[] {
   if (!entry.sale_date || typeof entry.sale_date !== 'string' || entry.sale_date.trim() === '') {
     errors.push('Invalid sale_date')
   }
-  if (!entry.user_id || typeof entry.user_id !== 'string' || entry.user_id.trim() === '') {
-    errors.push('Invalid user_id')
-  }
+  // Note: user_id validation removed - now using franchise/org context
   
   // Optional fields with type validation (allow empty strings for optional fields)
   if (entry.sales_rep !== undefined && entry.sales_rep !== null && entry.sales_rep !== '' && typeof entry.sales_rep !== 'string') {
@@ -900,7 +899,6 @@ function validateTicketHistoryEntry(entry: any): string[] {
 // ===== Enhanced Mutation with Progress Tracking =====
 export const parseAndInsertTicketsEnhanced = mutation({
   args: {
-    user_id: v.string(),
     rows: v.array(v.array(v.string())),
     options: v.optional(v.object({
       skipDuplicateCheck: v.optional(v.boolean()),
@@ -909,7 +907,8 @@ export const parseAndInsertTicketsEnhanced = mutation({
       dryRun: v.optional(v.boolean())
     }))
   },
-  handler: async (ctx, { user_id, rows, options = {} }) => {
+  handler: async (ctx, { rows, options = {} }) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     const startTime = Date.now()
     const {
       skipDuplicateCheck = false,
@@ -1005,7 +1004,7 @@ export const parseAndInsertTicketsEnhanced = mutation({
     
     // Use the proven insertion logic from the original parser
     const insertStartTime = Date.now()
-    const insertionResults = await insertTicketsEnhanced(ctx, parsedTickets, user_id, {
+    const insertionResults = await insertTicketsEnhanced(ctx, parsedTickets, userContext, {
       batchSize,
       validateBeforeInsert
     })
@@ -1080,7 +1079,7 @@ function cleanEntry(entry: any): any {
   cleaned.ticket_number = entry.ticket_number
   cleaned.store_id = entry.store_id
   cleaned.sale_date = entry.sale_date
-  cleaned.user_id = entry.user_id
+  // Note: user_id removed - now set from context in insertTicketsEnhanced
   
   // Optional fields - only include if they have meaningful values
   if (entry.sales_rep && entry.sales_rep.trim() !== '') {
@@ -1114,7 +1113,7 @@ function cleanEntry(entry: any): any {
 async function insertTicketsEnhanced(
   ctx: any,
   tickets: ParsedTicket[],
-  user_id: string,
+  userContext: any,
   options: { batchSize: number; validateBeforeInsert: boolean }
 ): Promise<{
   inserted: number
@@ -1148,7 +1147,8 @@ async function insertTicketsEnhanced(
           sales_rep: ticket.sales_rep,
           giftcard_amount: ticket.transaction_total,
           product_name: "Gift Card",
-          user_id
+          orgId: userContext.orgId,
+          franchiseId: userContext.franchiseId
         })
         giftCardEntries.push(giftCardEntry)
         continue
@@ -1167,7 +1167,8 @@ async function insertTicketsEnhanced(
           product_name: item.product_name,
           qty_sold: item.qty_sold,
           selling_unit: item.selling_unit,
-          user_id
+          orgId: userContext.orgId,
+          franchiseId: userContext.franchiseId
         })
         
         // Separate like working code: is_return logic

@@ -1,5 +1,6 @@
 import { mutation } from './_generated/server'
 import { v } from 'convex/values'
+import { getUserContext } from './accessControl'
 
 // Fixed parser based on exact CSV structure specifications
 // Uses precise column mapping and row relationships
@@ -358,11 +359,10 @@ export async function parseTicketsStructured(
 // Separate parsing mutation (no insertion)
 export const parseTicketsOnly = mutation({
   args: {
-    user_id: v.string(),
     rows: v.array(v.array(v.string())),
     dynamicProductNames: v.optional(v.record(v.string(), v.string()))
   },
-  handler: async (ctx, { user_id, rows, dynamicProductNames = {} }) => {
+  handler: async (ctx, { rows, dynamicProductNames = {} }) => {
     try {
       // Parse all tickets but don't insert anything
       const parseResult = await parseTicketsStructured(ctx, rows, dynamicProductNames)
@@ -382,8 +382,8 @@ export const parseTicketsOnly = mutation({
             sales_rep: ticket.sales_rep,
             giftcard_amount: giftCard.amount,
             product_name: giftCard.product_name,
-            gross_profit: ticket.gross_profit,
-            user_id
+            gross_profit: ticket.gross_profit
+            // Note: user_id removed - will be set from context during insertion
           })
         })
         
@@ -401,7 +401,7 @@ export const parseTicketsOnly = mutation({
             product_name: item.product_name,
             qty_sold: item.qty_sold,
             selling_unit: item.selling_unit,
-            user_id
+            // Note: user_id removed - will be set from context during insertion
           }
           allEntries.push(baseEntry)
         })
@@ -444,6 +444,8 @@ export const insertTicketsBatch = mutation({
     })
   },
   handler: async (ctx, { entries, batchInfo }) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
+    
     const stats = {
       inserted: 0,
       failed: 0,
@@ -466,7 +468,9 @@ export const insertTicketsBatch = mutation({
             giftcard_amount: entry.giftcard_amount,
             product_name: entry.product_name,
             gross_profit: entry.gross_profit,
-            user_id: entry.user_id
+            user_id: userContext.userId, // Keep for schema compatibility
+            orgId: userContext.orgId,
+            franchiseId: userContext.franchiseId
           })
           stats.byTable.gift_card_tickets++
         } else if (entry.type === 'sale') {
@@ -481,7 +485,9 @@ export const insertTicketsBatch = mutation({
             product_name: entry.product_name,
             qty_sold: entry.qty_sold,
             selling_unit: entry.selling_unit,
-            user_id: entry.user_id
+            user_id: userContext.userId, // Keep for schema compatibility
+            orgId: userContext.orgId,
+            franchiseId: userContext.franchiseId
           })
           stats.byTable.ticket_history++
         } else if (entry.type === 'return') {
@@ -496,7 +502,9 @@ export const insertTicketsBatch = mutation({
             product_name: entry.product_name,
             qty_sold: entry.qty_sold,
             selling_unit: entry.selling_unit,
-            user_id: entry.user_id
+            user_id: userContext.userId, // Keep for schema compatibility
+            orgId: userContext.orgId,
+            franchiseId: userContext.franchiseId
           })
           stats.byTable.return_tickets++
         }
@@ -562,7 +570,7 @@ async function insertTicketsStructured(
             sales_rep: ticket.sales_rep,
             giftcard_amount: giftCard.amount,
             product_name: giftCard.product_name,
-            user_id
+            // Note: user_id removed - will be set from context during insertion
           })
           results.byTable.gift_card_tickets++
           results.inserted++
@@ -589,7 +597,7 @@ async function insertTicketsStructured(
             product_name: item.product_name,
             qty_sold: item.qty_sold,
             selling_unit: item.selling_unit,
-            user_id
+            // Note: user_id removed - will be set from context during insertion
           }
           
           // Insert into appropriate table based on quantity (including zero qty items)

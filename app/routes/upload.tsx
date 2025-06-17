@@ -23,7 +23,7 @@ export default function UploadPage() {
                     Upload Your Data
                 </h1>
                 <p className="text-muted-foreground">
-                    Import your merchandise and ticket data to get started with SuppTraq
+                    Import your merchandise and ticket data to get started with Supptraq
                 </p>
             </motion.div>
 

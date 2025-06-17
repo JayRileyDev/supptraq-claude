@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { api } from "../../convex/_generated/api";
+import { formatCurrency, centsToDollars } from "../../convex/subscriptionHelpers";
 
 export default function IntegratedPricing() {
   const { isSignedIn, userId } = useAuth();
@@ -174,7 +175,7 @@ export default function IntegratedPricing() {
                   <CardDescription>{plan.description}</CardDescription>
                   <div className="mt-4">
                     <span className="text-4xl font-bold">
-                      ${(price.amount / 100).toFixed(0)}
+                      ${centsToDollars(price.amount).toFixed(0)}
                     </span>
                     <span className="text-muted-foreground">
                       /{price.interval || "month"}
@@ -223,14 +224,12 @@ export default function IntegratedPricing() {
                         const newAmount = price.amount;
 
                         if (newAmount > currentAmount) {
-                          return `Upgrade (+$${(
-                            (newAmount - currentAmount) /
-                            100
+                          return `Upgrade (+$${centsToDollars(
+                            newAmount - currentAmount
                           ).toFixed(0)}/mo)`;
                         } else if (newAmount < currentAmount) {
-                          return `Downgrade (-$${(
-                            (currentAmount - newAmount) /
-                            100
+                          return `Downgrade (-$${centsToDollars(
+                            currentAmount - newAmount
                           ).toFixed(0)}/mo)`;
                         } else {
                           return "Manage Plan";

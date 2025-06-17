@@ -2,6 +2,7 @@ import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
+import { getUserContext } from "./accessControl";
 
 // Generate a simple hash of the data to detect changes
 function generateDataHash(
@@ -373,13 +374,13 @@ export const recalculateMetrics = internalMutation({
 // Mutation to trigger metric recalculation (called after uploads)
 export const triggerMetricsUpdate = mutation({
   args: { 
-    userId: v.string(),
     dateRanges: v.optional(v.array(v.number()))
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     // Schedule the recalculation to run asynchronously
     await ctx.scheduler.runAfter(0, internal.dashboardCache.recalculateMetrics, {
-      userId: args.userId,
+      userId: userContext.userId,
       dateRanges: args.dateRanges
     });
     

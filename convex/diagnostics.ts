@@ -1,21 +1,20 @@
 import { query } from './_generated/server';
 import { v } from 'convex/values';
+import { getUserContext } from './accessControl';
 
 export const debugTicketStats = query({
-  args: {
-    user_id: v.optional(v.string())
-  },
-  handler: async (ctx, { user_id }) => {
+  args: {},
+  handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     // Get all data
     let ticketHistoryQuery = ctx.db.query('ticket_history');
     let returnTicketsQuery = ctx.db.query('return_tickets');
     let giftCardQuery = ctx.db.query('gift_card_tickets');
     
-    if (user_id) {
-      ticketHistoryQuery = ticketHistoryQuery.filter(q => q.eq(q.field('user_id'), user_id));
-      returnTicketsQuery = returnTicketsQuery.filter(q => q.eq(q.field('user_id'), user_id));
-      giftCardQuery = giftCardQuery.filter(q => q.eq(q.field('user_id'), user_id));
-    }
+    // Always filter by franchise
+    ticketHistoryQuery = ticketHistoryQuery.filter(q => q.eq(q.field('franchiseId'), userContext.franchiseId));
+    returnTicketsQuery = returnTicketsQuery.filter(q => q.eq(q.field('franchiseId'), userContext.franchiseId));
+    giftCardQuery = giftCardQuery.filter(q => q.eq(q.field('franchiseId'), userContext.franchiseId));
     
     const [ticketHistory, returnTickets, giftCards] = await Promise.all([
       ticketHistoryQuery.collect(),

@@ -1,5 +1,6 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { getUserContext } from "./accessControl";
 
 export const updateInventoryLine = mutation({
   args: { 
@@ -11,15 +12,21 @@ export const updateInventoryLine = mutation({
     })
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     const { lineId, updates } = args;
     
     // Convert string ID to Convex ID type
     const id = lineId as any;
     
-    // Get the existing line to verify it exists
+    // Get the existing line to verify it exists and belongs to user's franchise
     const existingLine = await ctx.db.get(id);
     if (!existingLine) {
       throw new Error("Inventory line not found");
+    }
+    
+    // Type guard to check if this is an inventory line with franchiseId
+    if ('franchiseId' in existingLine && existingLine.franchiseId !== userContext.franchiseId) {
+      throw new Error("Access denied: Inventory line belongs to different franchise");
     }
     
     // Update only the provided fields
@@ -31,19 +38,19 @@ export const updateInventoryLine = mutation({
 
 export const deleteInventoryLinesBatch = mutation({
   args: { 
-    userId: v.string(),
     uploadId: v.string()
   },
   handler: async (ctx, args) => {
-    const { userId, uploadId } = args;
+    const userContext = await getUserContext(ctx.auth, ctx.db);
+    const { uploadId } = args;
     
-    // Verify the upload exists and belongs to the user
+    // Verify the upload exists and belongs to the user's franchise
     const upload = await ctx.db
       .query("inventory_uploads")
       .filter((q) => q.eq(q.field("_id"), uploadId))
       .first();
       
-    if (!upload || upload.user_id !== userId) {
+    if (!upload || upload.franchiseId !== userContext.franchiseId) {
       throw new Error("Upload not found or access denied");
     }
     
@@ -66,19 +73,19 @@ export const deleteInventoryLinesBatch = mutation({
 
 export const deleteTransferLogsBatch = mutation({
   args: { 
-    userId: v.string(),
     uploadId: v.string()
   },
   handler: async (ctx, args) => {
-    const { userId, uploadId } = args;
+    const userContext = await getUserContext(ctx.auth, ctx.db);
+    const { uploadId } = args;
     
-    // Verify the upload exists and belongs to the user
+    // Verify the upload exists and belongs to the user's franchise
     const upload = await ctx.db
       .query("inventory_uploads")
       .filter((q) => q.eq(q.field("_id"), uploadId))
       .first();
       
-    if (!upload || upload.user_id !== userId) {
+    if (!upload || upload.franchiseId !== userContext.franchiseId) {
       throw new Error("Upload not found or access denied");
     }
     
@@ -101,19 +108,19 @@ export const deleteTransferLogsBatch = mutation({
 
 export const deleteUploadRecord = mutation({
   args: { 
-    userId: v.string(),
     uploadId: v.string()
   },
   handler: async (ctx, args) => {
-    const { userId, uploadId } = args;
+    const userContext = await getUserContext(ctx.auth, ctx.db);
+    const { uploadId } = args;
     
-    // Verify the upload exists and belongs to the user
+    // Verify the upload exists and belongs to the user's franchise
     const upload = await ctx.db
       .query("inventory_uploads")
       .filter((q) => q.eq(q.field("_id"), uploadId))
       .first();
       
-    if (!upload || upload.user_id !== userId) {
+    if (!upload || upload.franchiseId !== userContext.franchiseId) {
       throw new Error("Upload not found or access denied");
     }
     

@@ -14,6 +14,7 @@ import {
 import { CheckCircle, ArrowRight, Loader2, Calendar, CreditCard, Clock } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { useEffect } from "react";
+import { formatCurrency } from "../../convex/subscriptionHelpers";
 
 export default function Success() {
   const { isSignedIn } = useAuth();
@@ -107,7 +108,7 @@ export default function Success() {
               </motion.div>
               
               <CardTitle className="text-3xl font-bold text-center">
-                Welcome to SuppTraq!
+                Welcome to Supptraq!
               </CardTitle>
               <CardDescription className="text-lg text-center">
                 Your subscription is now active and ready to use.
@@ -128,7 +129,7 @@ export default function Success() {
                     <div className="flex-1">
                       <div className="text-sm text-gray-600">Amount</div>
                       <div className="font-medium">
-                        ${subscription.amount ? (subscription.amount / 100).toFixed(2) : '0.00'} {subscription.currency ? subscription.currency.toUpperCase() : 'USD'}
+                        {subscription.amount ? formatCurrency(subscription.amount, subscription.currency || 'USD') : '$0.00'}
                       </div>
                     </div>
                   </div>

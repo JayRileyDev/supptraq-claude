@@ -16,9 +16,9 @@ import { api } from "../../convex/_generated/api";
 import type { Route } from "./+types/home";
 
 export function meta({}: Route.MetaArgs) {
-  const title = "SuppTraq - Inventory & Sales Insights for Franchise Operators";
+  const title = "Supptraq - Inventory & Sales Insights for Franchise Operators";
   const description =
-    "SuppTraq helps franchise operators make smarter decisions about inventory, transfers, and sales performance without real-time connections.";
+    "Supptraq helps franchise operators make smarter decisions about inventory, transfers, and sales performance without real-time connections.";
   const keywords = "Franchise, Inventory Management, Sales Analytics, Supplement King, Retail Operations";
   const siteUrl = "https://www.reactstarter.xyz/";
   const imageUrl =

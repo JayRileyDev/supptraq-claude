@@ -311,6 +311,7 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 min-h-screen page-background">
+      
       {/* Animated Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}

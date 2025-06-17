@@ -1,18 +1,20 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
+import { getUserContext } from "./accessControl";
 
 export const getInventoryOverview = query({
   args: { 
-    userId: v.string(),
     storeId: v.optional(v.string()),
     vendor: v.optional(v.string()),
     uploadId: v.optional(v.string())
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
+    
     // MAJOR OPTIMIZATION: Apply filters at database level
     let inventoryQuery = ctx.db
       .query("inventory_lines")
-      .filter((q) => q.eq(q.field("user_id"), args.userId));
+      .filter((q) => q.eq(q.field("franchiseId"), userContext.franchiseId));
 
     // Apply store filter at query level
     if (args.storeId && args.storeId !== "all") {
@@ -112,18 +114,19 @@ export const getInventoryOverview = query({
 });
 
 export const getInventoryFilters = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  handler: async (ctx) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
+    
     // MAJOR OPTIMIZATION: Limit data fetch for filter generation
     const inventoryData = await ctx.db
       .query("inventory_lines")
-      .filter((q) => q.eq(q.field("user_id"), args.userId))
+      .filter((q) => q.eq(q.field("franchiseId"), userContext.franchiseId))
       .take(1000); // Only need sample to get unique values
 
     // Get uploads with limit
     const uploads = await ctx.db
       .query("inventory_uploads")
-      .filter((q) => q.eq(q.field("user_id"), args.userId))
+      .filter((q) => q.eq(q.field("franchiseId"), userContext.franchiseId))
       .take(100); // Limit uploads
 
     // Get unique stores from inventory_lines
@@ -148,11 +151,12 @@ export const getInventoryFilters = query({
 });
 
 export const getTransferLogs = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  handler: async (ctx) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
+    
     const transfers = await ctx.db
       .query("transfer_logs")
-      .filter((q) => q.eq(q.field("user_id"), args.userId))
+      .filter((q) => q.eq(q.field("franchiseId"), userContext.franchiseId))
       .order("desc")
       .take(20);
 
@@ -162,14 +166,15 @@ export const getTransferLogs = query({
 
 export const getInventoryDataForReport = query({
   args: { 
-    userId: v.string(),
     uploadId: v.string(),
     storeId: v.optional(v.string())
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
+    
     let query = ctx.db
       .query("inventory_lines")
-      .filter((q) => q.eq(q.field("user_id"), args.userId))
+      .filter((q) => q.eq(q.field("franchiseId"), userContext.franchiseId))
       .filter((q) => q.eq(q.field("upload_id"), args.uploadId));
     
     if (args.storeId) {
@@ -178,29 +183,183 @@ export const getInventoryDataForReport = query({
     
     const inventoryLines = await query.take(5000); // Limit for performance, paginated on frontend
     
+    // Get SKU vendor map for product name lookup (org-scoped, shared across franchise)
+    const skuVendorMap = await ctx.db
+      .query("sku_vendor_map")
+      .filter((q) => q.eq(q.field("orgId"), userContext.orgId))
+      .take(5000);
+    const skuMap = new Map(skuVendorMap.map(item => [item.item_number, item.description]));
+    
+    // Get all inventory lines for this franchise to use as fallback for product names
+    const allInventoryLines = await ctx.db
+      .query("inventory_lines")
+      .filter((q) => q.eq(q.field("franchiseId"), userContext.franchiseId))
+      .take(10000);
+    
+    // Create a map of item_number to product_name from all stores
+    const productNameMap = new Map();
+    allInventoryLines.forEach(line => {
+      if (line.product_name && line.product_name.trim()) {
+        productNameMap.set(line.item_number, line.product_name);
+      }
+    });
+    
     return {
-      inventoryLines: inventoryLines.map(line => ({
-        _id: line._id,
-        item_number: line.item_number,
-        product_name: line.product_name,
-        qty_sold: line.qty_sold,
-        qty_on_hand: line.qty_on_hand,
-        transfer_in_qty: line.transfer_in_qty,
-        transfer_out_qty: line.transfer_out_qty,
-        suggested_reorder_qty: line.suggested_reorder_qty
-      }))
+      inventoryLines: inventoryLines.map(line => {
+        // Determine the best product name to use
+        let productName = line.product_name;
+        
+        // If product name is missing or empty, try to find it from other sources
+        if (!productName || !productName.trim()) {
+          // First try SKU vendor map
+          productName = skuMap.get(line.item_number) || '';
+          
+          // If still empty, try from other stores with same item number
+          if (!productName || !productName.trim()) {
+            productName = productNameMap.get(line.item_number) || '';
+          }
+          
+          // Last resort - use item number as product name
+          if (!productName || !productName.trim()) {
+            productName = `Item ${line.item_number}`;
+          }
+        }
+        
+        return {
+          _id: line._id,
+          item_number: line.item_number,
+          product_name: productName,
+          qty_sold: line.qty_sold,
+          qty_on_hand: line.qty_on_hand,
+          transfer_in_qty: line.transfer_in_qty,
+          transfer_out_qty: line.transfer_out_qty,
+          suggested_reorder_qty: line.suggested_reorder_qty
+        };
+      })
     };
+  },
+});
+
+export const getTransferLogsForReport = query({
+  args: { 
+    uploadId: v.string(),
+    storeId: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
+    
+    let query = ctx.db
+      .query("transfer_logs")
+      .filter((q) => q.eq(q.field("franchiseId"), userContext.franchiseId))
+      .filter((q) => q.eq(q.field("upload_id"), args.uploadId));
+    
+    const transferLogs = await query.take(5000);
+    
+    // Get SKU vendor map for product name lookup (org-scoped)
+    const skuVendorMap = await ctx.db
+      .query("sku_vendor_map")
+      .filter((q) => q.eq(q.field("orgId"), userContext.orgId))
+      .take(5000);
+    const skuMap = new Map(skuVendorMap.map(item => [item.item_number, item.description]));
+    
+    // Get all inventory lines for this franchise to use as fallback for product names
+    const allInventoryLines = await ctx.db
+      .query("inventory_lines")
+      .filter((q) => q.eq(q.field("franchiseId"), userContext.franchiseId))
+      .take(10000);
+    
+    // Create a map of item_number to product_name from all stores
+    const productNameMap = new Map();
+    allInventoryLines.forEach(line => {
+      if (line.product_name && line.product_name.trim()) {
+        productNameMap.set(line.item_number, line.product_name);
+      }
+    });
+    
+    // If storeId is provided, we want transfers both in and out of this store
+    const relevantTransfers = args.storeId 
+      ? transferLogs.filter(log => 
+          log.from_store_id === args.storeId || log.to_store_id === args.storeId
+        )
+      : transferLogs;
+    
+    // Group transfers by item_number and store
+    const transferMap = new Map();
+    
+    relevantTransfers.forEach(transfer => {
+      const key = `${transfer.item_number}-${args.storeId || 'all'}`;
+      
+      // Determine the best product name to use
+      let productName = transfer.product_name;
+      
+      // If product name is missing or empty, try to find it from other sources
+      if (!productName || !productName.trim()) {
+        // First try SKU vendor map
+        productName = skuMap.get(transfer.item_number) || '';
+        
+        // If still empty, try from other stores with same item number
+        if (!productName || !productName.trim()) {
+          productName = productNameMap.get(transfer.item_number) || '';
+        }
+        
+        // Last resort - use item number as product name
+        if (!productName || !productName.trim()) {
+          productName = `Item ${transfer.item_number}`;
+        }
+      }
+      
+      if (!transferMap.has(key)) {
+        transferMap.set(key, {
+          item_number: transfer.item_number,
+          product_name: productName,
+          transfers_in: [],
+          transfers_out: []
+        });
+      }
+      
+      const item = transferMap.get(key);
+      // Update product name if we found a better one
+      if (productName && productName.trim() && productName !== `Item ${transfer.item_number}`) {
+        item.product_name = productName;
+      }
+      
+      if (args.storeId) {
+        // For a specific store view
+        if (transfer.to_store_id === args.storeId) {
+          item.transfers_in.push({
+            from_store: transfer.from_store_id,
+            qty: transfer.qty
+          });
+        }
+        if (transfer.from_store_id === args.storeId) {
+          item.transfers_out.push({
+            to_store: transfer.to_store_id,
+            qty: transfer.qty
+          });
+        }
+      } else {
+        // For all stores view - we'll need to handle this differently
+        // This is complex for a combined view, so we'll return raw data
+        return relevantTransfers;
+      }
+    });
+    
+    return Array.from(transferMap.values());
   },
 });
 
 export const getVendorBrandMapping = query({
   args: { 
-    userId: v.string(),
     primaryVendor: v.optional(v.string())
   },
   handler: async (ctx, args) => {
-    // MAJOR OPTIMIZATION: Limit vendors table fetch
-    const vendors = await ctx.db.query("vendors").take(200); // Limit for performance
+    const userContext = await getUserContext(ctx.auth, ctx.db);
+    
+    // Get vendors for this org
+    const vendors = await ctx.db
+      .query("vendors")
+      .filter((q) => q.eq(q.field("orgId"), userContext.orgId))
+      .take(200); // Limit for performance
     
     if (args.primaryVendor) {
       // Find vendor name where vendor_code matches primary_vendor
@@ -233,15 +392,16 @@ export const getVendorBrandMapping = query({
 
 export const getUploadOverview = query({
   args: { 
-    userId: v.string(),
     uploadId: v.optional(v.string()),
     storeId: v.optional(v.string())
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
+    
     // Query inventory lines for top sold items
     let inventoryQuery = ctx.db
       .query("inventory_lines")
-      .filter((q) => q.eq(q.field("user_id"), args.userId));
+      .filter((q) => q.eq(q.field("franchiseId"), userContext.franchiseId));
     
     if (args.uploadId) {
       inventoryQuery = inventoryQuery.filter((q) => q.eq(q.field("upload_id"), args.uploadId));
@@ -256,7 +416,7 @@ export const getUploadOverview = query({
     // Query transfer logs for transfer count
     let transferQuery = ctx.db
       .query("transfer_logs")
-      .filter((q) => q.eq(q.field("user_id"), args.userId));
+      .filter((q) => q.eq(q.field("franchiseId"), userContext.franchiseId));
     
     if (args.uploadId) {
       transferQuery = transferQuery.filter((q) => q.eq(q.field("upload_id"), args.uploadId));
@@ -271,12 +431,30 @@ export const getUploadOverview = query({
       );
     }
     
-    // MAJOR OPTIMIZATION: Limit SKU vendor map fetch
-    const skuVendorMap = await ctx.db.query("sku_vendor_map").take(5000); // Limit for performance
+    // Get SKU vendor map for this org
+    const skuVendorMap = await ctx.db
+      .query("sku_vendor_map")
+      .filter((q) => q.eq(q.field("orgId"), userContext.orgId))
+      .take(5000); // Limit for performance
     const priceMap = new Map(skuVendorMap.map(item => [item.item_number, item.retail_price || 0]));
     
     // Count total transfers from transfer logs
     const transfersOutCount = transferLogs.length;
+    
+    // Create a map of item_number to product_name for fallback
+    const productNameMap = new Map();
+    skuVendorMap.forEach(item => {
+      if (item.description && item.description.trim()) {
+        productNameMap.set(item.item_number, item.description);
+      }
+    });
+    
+    // Also add product names from other inventory lines
+    inventoryLines.forEach(line => {
+      if (line.product_name && line.product_name.trim()) {
+        productNameMap.set(line.item_number, line.product_name);
+      }
+    });
     
     // Get top 5 sold items (aggregate by item_number across all stores)
     const itemSalesMap = new Map();
@@ -284,14 +462,25 @@ export const getUploadOverview = query({
     inventoryLines.forEach(line => {
       if (line.qty_sold > 0) {
         const key = line.item_number;
+        
+        // Determine best product name
+        let productName = line.product_name;
+        if (!productName || !productName.trim()) {
+          productName = productNameMap.get(line.item_number) || `Item ${line.item_number}`;
+        }
+        
         if (itemSalesMap.has(key)) {
           const existing = itemSalesMap.get(key);
           existing.qty_sold += line.qty_sold;
           existing.retail_total += line.qty_sold * (priceMap.get(line.item_number) || 0);
+          // Update product name if we found a better one
+          if (productName && productName.trim() && productName !== `Item ${line.item_number}`) {
+            existing.product_name = productName;
+          }
         } else {
           itemSalesMap.set(key, {
             item_number: line.item_number,
-            product_name: line.product_name,
+            product_name: productName,
             qty_sold: line.qty_sold,
             retail_total: line.qty_sold * (priceMap.get(line.item_number) || 0)
           });

@@ -1,6 +1,7 @@
 import { mutation } from './_generated/server'
 import { v } from 'convex/values'
 import { parse } from 'date-fns'
+import { getUserContext } from './accessControl'
 import { optimizeInventory, type InventoryLineInput, type SKUMapEntry } from './utils/inventoryOptimization'
 
 // --- Types ---
@@ -102,7 +103,6 @@ function isSummaryRow(item: string, store: string) {
 
 export const parseAndInsertMerch = mutation({
     args: {
-        user_id: v.string(),
         rows: v.array(v.array(v.any())),
         chunk_index: v.number(),
         metadata: v.optional(v.object({
@@ -120,7 +120,8 @@ export const parseAndInsertMerch = mutation({
             })
         }))
     },
-    handler: async (ctx, { user_id, rows, chunk_index, metadata }) => {
+    handler: async (ctx, { rows, chunk_index, metadata }) => {
+        const userContext = await getUserContext(ctx.auth, ctx.db);
         let csvMetadata: CSVMetadata;
         let upload_id: string;
 
@@ -132,9 +133,11 @@ export const parseAndInsertMerch = mutation({
             }
             csvMetadata = extractedMetadata;
 
-            // Create upload record
+            // Create upload record with org/franchise info
             upload_id = await ctx.db.insert('inventory_uploads', {
-                user_id,
+                user_id: userContext.userId,
+                orgId: userContext.orgId,
+                franchiseId: userContext.franchiseId,
                 primary_vendor: csvMetadata.primary_vendor,
                 window_start: csvMetadata.window_start.toISOString(),
                 window_end: csvMetadata.window_end.toISOString(),
@@ -156,7 +159,7 @@ export const parseAndInsertMerch = mutation({
             // Get the upload_id from the first chunk
             const upload = await ctx.db
                 .query('inventory_uploads')
-                .filter(q => q.eq(q.field('user_id'), user_id))
+                .filter(q => q.eq(q.field('user_id'), userContext.userId))
                 .order('desc')
                 .first();
             
@@ -236,22 +239,28 @@ export const parseAndInsertMerch = mutation({
             inventoryLines,
             skuMap,
             upload_id,
-            user_id,
+            user_id: userContext.userId,
             globalPrimaryVendor: csvMetadata.primary_vendor
         });
 
-        // Insert optimized inventory lines
+        // Insert optimized inventory lines with org/franchise info
         for (const line of inventory) {
             await ctx.db.insert('inventory_lines', {
                 ...line,
+                orgId: userContext.orgId,
+                franchiseId: userContext.franchiseId,
                 created_at: new Date().toISOString()
             });
             inserted++;
         }
 
-        // Insert transfer logs
+        // Insert transfer logs with org/franchise info
         for (const transfer of transfers) {
-            await ctx.db.insert('transfer_logs', transfer);
+            await ctx.db.insert('transfer_logs', {
+                ...transfer,
+                orgId: userContext.orgId,
+                franchiseId: userContext.franchiseId,
+            });
         }
 
         return { 

@@ -9,9 +9,12 @@ export default [
   index("routes/home.tsx"),
   route("sign-in/*", "routes/sign-in.tsx"),
   route("sign-up/*", "routes/sign-up.tsx"),
+  route("onboarding", "routes/onboarding.tsx"),
   route("pricing", "routes/pricing.tsx"),
   route("success", "routes/success.tsx"),
   route("subscription-required", "routes/subscription-required.tsx"),
+  route("admin", "routes/admin.tsx"),
+  route("admin/grant-me", "routes/admin.grant-me.tsx"),
   layout("routes/dashboard/layout.tsx", [
     route("dashboard", "routes/dashboard/index.tsx"),
     route("upload", "routes/upload.tsx"),

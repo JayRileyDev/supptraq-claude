@@ -1,13 +1,20 @@
 import { useUser } from "@clerk/react-router";
 import { motion } from "framer-motion";
-import { User, Palette, Bell, Globe, Shield, Save, Mail, Phone } from "lucide-react";
+import { User, Palette, Bell, Globe, Shield, Save, Mail, Phone, Users, UserPlus, Settings, Trash2, Crown } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Switch } from "~/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
+import { Badge } from "~/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "~/components/ui/dialog";
+import { Checkbox } from "~/components/ui/checkbox";
 import { ThemeToggle } from "~/components/ui/theme-toggle";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { AVAILABLE_PAGES, PAGE_DISPLAY_NAMES } from "../../convex/accessControl";
+import { useState } from "react";
 
 import { useTheme } from "~/lib/theme-provider";
 import SubscriptionStatus from "~/components/subscription-status";
@@ -56,6 +63,79 @@ function SettingsCard({
 export default function SettingsPage() {
   const { user } = useUser();
   const { theme, setTheme } = useTheme();
+  
+  // Team management state
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<any>(null);
+  const [memberEmail, setMemberEmail] = useState("");
+  const [memberName, setMemberName] = useState("");
+  const [memberPassword, setMemberPassword] = useState("");
+  const [selectedPages, setSelectedPages] = useState<string[]>([]);
+
+  // Convex queries and mutations
+  const currentUser = useQuery(api.users.getCurrentUser);
+  const teamMembers = useQuery(api.users.getTeamMembers);
+  const createTeamMember = useMutation(api.users.createTeamMember);
+  const updatePermissions = useMutation(api.users.updateMemberPermissions);
+  const removeMember = useMutation(api.users.removeMember);
+
+  // Team management handlers
+  const handleCreateMember = async () => {
+    try {
+      const newMember = await createTeamMember({
+        name: memberName,
+        email: memberEmail,
+        password: memberPassword,
+        allowedPages: selectedPages,
+      });
+      
+      alert(`Team member created successfully!\n\nLogin credentials:\nEmail: ${memberEmail}\nPassword: ${memberPassword}\n\nThey can now log in at your application's sign-in page.`);
+      
+      setIsCreateDialogOpen(false);
+      setMemberEmail("");
+      setMemberName("");
+      setMemberPassword("");
+      setSelectedPages([]);
+    } catch (error: any) {
+      console.error("Failed to create team member:", error);
+      alert(`Failed to create team member: ${error?.message || 'Please try again.'}`);
+    }
+  };
+
+  const handleUpdatePermissions = async () => {
+    if (!selectedMember) return;
+
+    try {
+      await updatePermissions({
+        userId: selectedMember._id,
+        allowedPages: selectedPages,
+      });
+      setIsManageDialogOpen(false);
+      setSelectedMember(null);
+      setSelectedPages([]);
+    } catch (error) {
+      console.error("Failed to update permissions:", error);
+      alert("Failed to update permissions. Please try again.");
+    }
+  };
+
+  const handleRemoveMember = async (memberId: any) => {
+    if (confirm("Are you sure you want to remove this team member? They will lose access to all data.")) {
+      try {
+        await removeMember({ userId: memberId });
+      } catch (error) {
+        console.error("Failed to remove member:", error);
+        alert("Failed to remove member. Please try again.");
+      }
+    }
+  };
+
+  const openManageDialog = (member: any) => {
+    setSelectedMember(member);
+    setSelectedPages(member.allowedPages || []);
+    setIsManageDialogOpen(true);
+  };
 
   return (
     <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 min-h-screen page-background">
@@ -145,7 +225,7 @@ export default function SettingsPage() {
         {/* Theme & Appearance */}
         <SettingsCard
           title="Theme & Appearance"
-          description="Customize how SuppTraq looks and feels"
+          description="Customize how Supptraq looks and feels"
           icon={Palette}
           delay={0.2}
         >
@@ -361,7 +441,210 @@ export default function SettingsPage() {
             </div>
           </div>
         </SettingsCard>
+
+        {/* Team Management - Only show for owners */}
+        {currentUser?.role === "owner" && (
+          <SettingsCard
+            title="Team Management"
+            description="Manage your organization's team members and their permissions"
+            icon={Users}
+            delay={0.6}
+          >
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label className="text-foreground">Team Members</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {teamMembers?.length || 0} member(s) in your organization
+                  </p>
+                </div>
+                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Create Member
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Create Team Member</DialogTitle>
+                      <DialogDescription>
+                        Create a new team member account with login credentials and page permissions.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Full Name</Label>
+                        <Input
+                          id="name"
+                          placeholder="John Doe"
+                          value={memberName}
+                          onChange={(e) => setMemberName(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email Address</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="john@example.com"
+                          value={memberEmail}
+                          onChange={(e) => setMemberEmail(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="password">Password</Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          placeholder="Create a secure password"
+                          value={memberPassword}
+                          onChange={(e) => setMemberPassword(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Page Access Permissions</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {AVAILABLE_PAGES.map((page) => (
+                            <div key={page} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={page}
+                                checked={selectedPages.includes(page)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedPages([...selectedPages, page]);
+                                  } else {
+                                    setSelectedPages(selectedPages.filter(p => p !== page));
+                                  }
+                                }}
+                              />
+                              <Label htmlFor={page} className="text-sm">
+                                {PAGE_DISPLAY_NAMES[page]}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <Button
+                        onClick={handleCreateMember}
+                        disabled={!memberEmail.trim() || !memberName.trim() || !memberPassword.trim()}
+                        className="w-full"
+                      >
+                        Create Team Member
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              <div className="space-y-3 max-h-60 overflow-y-auto">
+                {teamMembers?.map((member) => (
+                  <div key={member._id} className="flex items-center justify-between p-3 border rounded-lg bg-background/50">
+                    <div className="flex items-center space-x-3">
+                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                        {member.role === "owner" ? (
+                          <Crown className="h-4 w-4 text-yellow-600" />
+                        ) : (
+                          <User className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-medium text-sm">{member.name || "Unknown"}</div>
+                        <div className="text-xs text-muted-foreground">{member.email}</div>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Badge variant={member.role === "owner" ? "default" : "secondary"} className="text-xs">
+                            {member.role === "owner" ? "Owner" : "Member"}
+                          </Badge>
+                          {member.role === "member" && (
+                            <Badge variant="outline" className="text-xs">
+                              {member.allowedPages?.length || 0} pages
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      {member._id !== currentUser?._id && member.role === "member" && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openManageDialog(member)}
+                            className="h-7 text-xs"
+                          >
+                            <Settings className="h-3 w-3 mr-1" />
+                            Manage
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRemoveMember(member._id)}
+                            className="h-7 text-xs"
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Remove
+                          </Button>
+                        </>
+                      )}
+                      {member._id === currentUser?._id && (
+                        <Badge variant="outline" className="text-xs">You</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </SettingsCard>
+        )}
       </div>
+
+      {/* Manage Member Permissions Dialog */}
+      <Dialog open={isManageDialogOpen} onOpenChange={setIsManageDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Manage Member Permissions</DialogTitle>
+            <DialogDescription>
+              Update page access permissions for {selectedMember?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Page Access Permissions</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {AVAILABLE_PAGES.map((page) => (
+                  <div key={page} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`manage-${page}`}
+                      checked={selectedPages.includes(page)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedPages([...selectedPages, page]);
+                        } else {
+                          setSelectedPages(selectedPages.filter(p => p !== page));
+                        }
+                      }}
+                    />
+                    <Label htmlFor={`manage-${page}`} className="text-sm">
+                      {PAGE_DISPLAY_NAMES[page]}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsManageDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleUpdatePermissions} className="flex-1">
+                Update Permissions
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

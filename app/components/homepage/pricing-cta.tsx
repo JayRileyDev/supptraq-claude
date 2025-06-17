@@ -17,7 +17,7 @@ export default function PricingCTA() {
         "Email support",
         "CSV/PDF exports"
       ],
-      buttonText: "Start Free Trial",
+      buttonText: "Start Early Access",
       buttonVariant: "outline" as const,
       popular: false
     },
@@ -35,7 +35,7 @@ export default function PricingCTA() {
         "Custom report templates",
         "Vendor budget management"
       ],
-      buttonText: "Start Free Trial",
+      buttonText: "Start Early Access",
       buttonVariant: "default" as const,
       popular: true
     },
@@ -94,7 +94,7 @@ export default function PricingCTA() {
             viewport={{ once: true }}
             className="text-xl text-white/80 max-w-3xl mx-auto"
           >
-            Choose the plan that fits your franchise operation. All plans include a 14-day free trial.
+            Choose the plan that fits your franchise operation. All plans include 14-day early access.
           </motion.p>
         </motion.div>
 
@@ -248,7 +248,7 @@ export default function PricingCTA() {
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {[
-              { title: "14-day free trial", subtitle: "No credit card required" },
+              { title: "14-day early access", subtitle: "No credit card required" },
               { title: "Cancel anytime", subtitle: "No long-term contracts" },
               { title: "30-day money back", subtitle: "Risk-free guarantee" }
             ].map((guarantee, index) => (

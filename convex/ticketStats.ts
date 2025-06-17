@@ -1,6 +1,7 @@
 import { query } from './_generated/server';
 import { v } from 'convex/values';
 import { getAllDataWithPagination } from './utils/pagination';
+import { getUserContext } from './accessControl';
 
 interface AggregatedTicketStats {
   totalTickets: number;
@@ -16,23 +17,21 @@ interface AggregatedTicketStats {
 
 export const getTicketStats = query({
   args: {
-    user_id: v.optional(v.string()),
     store_id: v.optional(v.string()),
     start_date: v.optional(v.string()),
     end_date: v.optional(v.string())
   },
-  handler: async (ctx, { user_id, store_id, start_date, end_date }): Promise<AggregatedTicketStats> => {
+  handler: async (ctx, { store_id, start_date, end_date }): Promise<AggregatedTicketStats> => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     // Build base queries with filters
     let ticketHistoryQuery = ctx.db.query('ticket_history');
     let returnTicketsQuery = ctx.db.query('return_tickets');
     let giftCardQuery = ctx.db.query('gift_card_tickets');
     
-    // Apply filters
-    if (user_id) {
-      ticketHistoryQuery = ticketHistoryQuery.filter(q => q.eq(q.field('user_id'), user_id));
-      returnTicketsQuery = returnTicketsQuery.filter(q => q.eq(q.field('user_id'), user_id));
-      giftCardQuery = giftCardQuery.filter(q => q.eq(q.field('user_id'), user_id));
-    }
+    // Apply franchise filter (always required now)
+    ticketHistoryQuery = ticketHistoryQuery.filter(q => q.eq(q.field('franchiseId'), userContext.franchiseId));
+    returnTicketsQuery = returnTicketsQuery.filter(q => q.eq(q.field('franchiseId'), userContext.franchiseId));
+    giftCardQuery = giftCardQuery.filter(q => q.eq(q.field('franchiseId'), userContext.franchiseId));
     
     if (store_id) {
       ticketHistoryQuery = ticketHistoryQuery.filter(q => q.eq(q.field('store_id'), store_id));
@@ -53,31 +52,18 @@ export const getTicketStats = query({
     }
     
     // Use pagination to get ALL data without limits - this is critical for accurate totals
-    console.log(`📊 getTicketStats: Fetching ALL data for user ${user_id} with pagination`);
+    console.log(`📊 getTicketStats: Fetching ALL data for franchise ${userContext.franchiseId} with pagination`);
     
     let ticketHistory: any[] = [];
     let returnTickets: any[] = [];
     let giftCards: any[] = [];
     
-    if (user_id) {
-      // Use pagination for complete data when user_id is specified
-      [ticketHistory, returnTickets, giftCards] = await Promise.all([
-        getAllDataWithPagination(ctx, "ticket_history", user_id, start_date, end_date),
-        getAllDataWithPagination(ctx, "return_tickets", user_id, start_date, end_date),
-        getAllDataWithPagination(ctx, "gift_card_tickets", user_id, start_date, end_date)
-      ]);
-    } else {
-      // Fallback to old method with limits for admin/global queries
-      const baseLimit = 25000;
-      const returnLimit = 15000;
-      const giftCardLimit = 8000;
-      
-      [ticketHistory, returnTickets, giftCards] = await Promise.all([
-        ticketHistoryQuery.order('desc').take(baseLimit),
-        returnTicketsQuery.order('desc').take(returnLimit),
-        giftCardQuery.order('desc').take(giftCardLimit)
-      ]);
-    }
+    // Use pagination for complete data with franchiseId
+    [ticketHistory, returnTickets, giftCards] = await Promise.all([
+      getAllDataWithPagination(ctx, "ticket_history", userContext.franchiseId, start_date, end_date),
+      getAllDataWithPagination(ctx, "return_tickets", userContext.franchiseId, start_date, end_date),
+      getAllDataWithPagination(ctx, "gift_card_tickets", userContext.franchiseId, start_date, end_date)
+    ]);
     
     console.log(`✅ getTicketStats: Fetched ${ticketHistory.length} tickets, ${returnTickets.length} returns, ${giftCards.length} gift cards`);
     

@@ -75,18 +75,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 try {
                   var theme = localStorage.getItem('supptraq-ui-theme');
                   var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                  var shouldBeDark = theme === 'dark' || (theme === 'system' && systemDark) || (!theme && systemDark);
+                  var shouldBeDark = theme === 'dark' || (theme === 'system' && systemDark) || (!theme && true); // Default to dark
                   
-                  document.documentElement.classList.remove('dark', 'light');
-                  if (shouldBeDark) {
-                    document.documentElement.classList.add('dark');
-                  } else {
+                  // Only change if different from server default (dark)
+                  if (!shouldBeDark) {
+                    document.documentElement.classList.remove('dark');
                     document.documentElement.classList.add('light');
                   }
+                  // If shouldBeDark is true, keep the server's default 'dark' class
                 } catch (e) {
-                  // Fallback to dark mode if there's any error
-                  document.documentElement.classList.remove('light');
-                  document.documentElement.classList.add('dark');
+                  // Server already has dark class, so no change needed for fallback
                 }
               })();
             `,
@@ -107,8 +105,8 @@ export default function App({ loaderData }: Route.ComponentProps) {
   return (
     <ClerkProvider
       loaderData={loaderData}
-      signUpFallbackRedirectUrl="/dashboard"
-      signInFallbackRedirectUrl="/dashboard"
+      signUpFallbackRedirectUrl="/onboarding"
+      signInFallbackRedirectUrl="/onboarding"
     >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
         <ThemeProvider

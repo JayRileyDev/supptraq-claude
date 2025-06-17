@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, internalQuery } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
+import { getUserContext } from "./accessControl";
 
 // Helper function to format currency
 const formatCurrency = (amount: number) => {
@@ -20,11 +21,11 @@ const formatPercentage = (value: number) => {
 // Get worst performing stores
 export const getWorstPerformingStores = internalQuery({
   args: { 
-    userId: v.string(),
     limit: v.optional(v.number()),
     dateRange: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     const limit = args.limit || 5;
     const dateRange = args.dateRange || 7; // Default to 7 days
     
@@ -40,7 +41,7 @@ export const getWorstPerformingStores = internalQuery({
       .withIndex("by_store_id")
       .filter((q) => 
         q.and(
-          q.eq(q.field("user_id"), args.userId),
+          q.eq(q.field("franchiseId"), userContext.franchiseId),
           q.gte(q.field("sale_date"), startDateStr)
         )
       )
@@ -92,11 +93,11 @@ export const getWorstPerformingStores = internalQuery({
 // Get sales rep performance
 export const getSalesRepPerformance = internalQuery({
   args: {
-    userId: v.string(),
     month: v.optional(v.string()), // Format: "YYYY-MM"
     metric: v.optional(v.string()), // "avgTicket", "totalSales", "returns"
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     const targetMonth = args.month || new Date().toISOString().substring(0, 7);
     const [year, month] = targetMonth.split('-');
     
@@ -105,7 +106,7 @@ export const getSalesRepPerformance = internalQuery({
       .query("ticket_history")
       .filter((q) =>
         q.and(
-          q.eq(q.field("user_id"), args.userId),
+          q.eq(q.field("franchiseId"), userContext.franchiseId),
           q.gte(q.field("sale_date"), `${targetMonth}-01`),
           q.lt(q.field("sale_date"), `${year}-${String(Number(month) + 1).padStart(2, '0')}-01`)
         )
@@ -117,7 +118,7 @@ export const getSalesRepPerformance = internalQuery({
       .query("return_tickets")
       .filter((q) =>
         q.and(
-          q.eq(q.field("user_id"), args.userId),
+          q.eq(q.field("franchiseId"), userContext.franchiseId),
           q.gte(q.field("sale_date"), `${targetMonth}-01`),
           q.lt(q.field("sale_date"), `${year}-${String(Number(month) + 1).padStart(2, '0')}-01`)
         )
@@ -202,10 +203,10 @@ export const getSalesRepPerformance = internalQuery({
 // Get total inventory value
 export const getTotalInventoryValue = internalQuery({
   args: {
-    userId: v.string(),
     storeId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     // Get SKU vendor map for retail prices
     const skuMap = await ctx.db
       .query("sku_vendor_map")
@@ -219,7 +220,7 @@ export const getTotalInventoryValue = internalQuery({
     let inventoryQuery = ctx.db
       .query("inventory_lines")
       .withIndex("by_user_id")
-      .filter((q) => q.eq(q.field("user_id"), args.userId));
+      .filter((q) => q.eq(q.field("franchiseId"), userContext.franchiseId));
     
     if (args.storeId) {
       inventoryQuery = inventoryQuery.filter((q) => 
@@ -271,17 +272,17 @@ export const getTotalInventoryValue = internalQuery({
 // Get overstocked items
 export const getOverstockedItems = internalQuery({
   args: {
-    userId: v.string(),
     threshold: v.optional(v.number()), // Days of inventory
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     const daysThreshold = args.threshold || 90; // Default 90 days
     
     // Get inventory and sales data
     const inventory = await ctx.db
       .query("inventory_lines")
       .withIndex("by_user_id")
-      .filter((q) => q.eq(q.field("user_id"), args.userId))
+      .filter((q) => q.eq(q.field("franchiseId"), userContext.franchiseId))
       .collect();
     
     // Get last 30 days of sales
@@ -293,7 +294,7 @@ export const getOverstockedItems = internalQuery({
       .query("ticket_history")
       .filter((q) =>
         q.and(
-          q.eq(q.field("user_id"), args.userId),
+          q.eq(q.field("franchiseId"), userContext.franchiseId),
           q.gte(q.field("sale_date"), salesStartDate)
         )
       )
@@ -353,10 +354,10 @@ export const getOverstockedItems = internalQuery({
 // Get returns analysis
 export const getReturnsAnalysis = internalQuery({
   args: {
-    userId: v.string(),
     period: v.optional(v.string()), // "lastMonth", "thisMonth", "lastWeek"
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     const period = args.period || "lastMonth";
     
     // Calculate date range
@@ -387,7 +388,7 @@ export const getReturnsAnalysis = internalQuery({
       .query("return_tickets")
       .filter((q) =>
         q.and(
-          q.eq(q.field("user_id"), args.userId),
+          q.eq(q.field("franchiseId"), userContext.franchiseId),
           q.gte(q.field("sale_date"), startDateStr),
           q.lte(q.field("sale_date"), endDateStr)
         )
@@ -399,7 +400,7 @@ export const getReturnsAnalysis = internalQuery({
       .query("ticket_history")
       .filter((q) =>
         q.and(
-          q.eq(q.field("user_id"), args.userId),
+          q.eq(q.field("franchiseId"), userContext.franchiseId),
           q.gte(q.field("sale_date"), startDateStr),
           q.lte(q.field("sale_date"), endDateStr)
         )
@@ -473,10 +474,10 @@ export const getReturnsAnalysis = internalQuery({
 // Get store improvement analysis
 export const getStoreImprovements = internalQuery({
   args: {
-    userId: v.string(),
     comparisonPeriod: v.optional(v.string()), // "week", "month"
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     const period = args.comparisonPeriod || "week";
     const daysInPeriod = period === "week" ? 7 : 30;
     
@@ -493,7 +494,7 @@ export const getStoreImprovements = internalQuery({
       .withIndex("by_store_id")
       .filter((q) =>
         q.and(
-          q.eq(q.field("user_id"), args.userId),
+          q.eq(q.field("franchiseId"), userContext.franchiseId),
           q.gte(q.field("sale_date"), previousPeriodStart.toISOString().split('T')[0])
         )
       )
@@ -590,40 +591,18 @@ export const getBusinessContext = query({
     dateRange: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    console.log("Auth identity:", identity ? "found" : "not found");
-    console.log("Identity tokenIdentifier:", identity?.tokenIdentifier);
-    
-    if (!identity) {
+    try {
+      const userContext = await getUserContext(ctx.auth, ctx.db);
+      console.log("User context obtained successfully");
+    } catch (error) {
       return {
-        error: "User not authenticated",
+        error: "User not authenticated or not found",
         query: args.query,
         timestamp: new Date().toISOString(),
       };
     }
     
-    // Check what users exist in the database
-    const allUsers = await ctx.db.query("users").take(5);
-    console.log("Users in database:", allUsers.map(u => ({ id: u._id, token: u.tokenIdentifier })));
-    
-    let user = await ctx.db
-      .query("users")
-      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
-      .unique();
-    
-    console.log("User found:", user ? "yes" : "no");
-    
-    if (!user) {
-      return {
-        error: "User not found in database - please contact support",
-        query: args.query,
-        timestamp: new Date().toISOString(),
-        debugInfo: {
-          searchedFor: identity.tokenIdentifier,
-          existingUsers: allUsers.map(u => u.tokenIdentifier),
-        }
-      };
-    }
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     
     // Parse the query to determine what data to fetch
     const queryLower = args.query.toLowerCase();
@@ -632,14 +611,16 @@ export const getBusinessContext = query({
     const context: any = {
       query: args.query,
       timestamp: new Date().toISOString(),
-      userId: user._id,
+      userId: userContext.userId,
+      franchiseId: userContext.franchiseId,
+      orgId: userContext.orgId,
     };
     
     // Always include some basic metrics for context
     const dashboardMetrics = await ctx.db
       .query("dashboard_metrics_cache")
       .withIndex("by_user_range", (q) => 
-        q.eq("user_id", user._id).eq("date_range", 7)
+        q.eq("user_id", userContext.userId).eq("date_range", 7)
       )
       .first();
     
@@ -668,7 +649,7 @@ export const getBusinessContext = query({
       .query("ticket_history")
       .filter((q) => 
         q.and(
-          q.eq(q.field("user_id"), user._id),
+          q.eq(q.field("franchiseId"), userContext.franchiseId),
           q.gte(q.field("sale_date"), startDateStr)
         )
       )
@@ -758,7 +739,7 @@ export const getBusinessContext = query({
       const recentInventory = await ctx.db
         .query("inventory_lines")
         .withIndex("by_user_id")
-        .filter((q) => q.eq(q.field("user_id"), user._id))
+        .filter((q) => q.eq(q.field("franchiseId"), userContext.franchiseId))
         .take(50);
       
       const totalValue = recentInventory.reduce((sum, item) => {

@@ -1,13 +1,14 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
+import { getUserContext } from "./accessControl";
 import type { Id } from "./_generated/dataModel";
 
 export const getDashboardOverview = query({
   args: { 
-    userId: v.string(),
     dateRange: v.optional(v.number()) // days to look back, defaults to 30
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     const dateRange = args.dateRange || 30;
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - dateRange);
@@ -20,7 +21,7 @@ export const getDashboardOverview = query({
         .query("ticket_history")
         .filter((q) => 
           q.and(
-            q.eq(q.field("user_id"), args.userId),
+            q.eq(q.field("franchiseId"), userContext.franchiseId),
             q.gte(q.field("sale_date"), startDateStr)
           )
         )
@@ -56,7 +57,7 @@ export const getDashboardOverview = query({
       .query("ticket_history")
       .filter((q) => 
         q.and(
-          q.eq(q.field("user_id"), args.userId),
+          q.eq(q.field("franchiseId"), userContext.franchiseId),
           q.gte(q.field("sale_date"), startDateStr)
         )
       )
@@ -68,7 +69,7 @@ export const getDashboardOverview = query({
       .query("return_tickets")
       .filter((q) => 
         q.and(
-          q.eq(q.field("user_id"), args.userId),
+          q.eq(q.field("franchiseId"), userContext.franchiseId),
           q.gte(q.field("sale_date"), startDateStr)
         )
       )
@@ -80,7 +81,7 @@ export const getDashboardOverview = query({
       .query("gift_card_tickets")
       .filter((q) => 
         q.and(
-          q.eq(q.field("user_id"), args.userId),
+          q.eq(q.field("franchiseId"), userContext.franchiseId),
           q.gte(q.field("sale_date"), startDateStr)
         )
       )
@@ -264,14 +265,14 @@ export const getDashboardOverview = query({
     // Get recent uploads info
     const recentInventoryUploads = await ctx.db
       .query("inventory_uploads")
-      .filter((q) => q.eq(q.field("user_id"), args.userId))
+      .filter((q) => q.eq(q.field("franchiseId"), userContext.franchiseId))
       .order("desc")
       .take(5);
 
     // Get recent ticket uploads
     const recentTicketUploads = await ctx.db
       .query("ticket_uploads")
-      .filter((q) => q.eq(q.field("user_id"), args.userId))
+      .filter((q) => q.eq(q.field("franchiseId"), userContext.franchiseId))
       .order("desc")
       .take(5);
 

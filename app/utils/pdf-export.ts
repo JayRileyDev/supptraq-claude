@@ -78,7 +78,7 @@ export async function generateRepPerformancePDF(data: RepPerformanceExport) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(127, 140, 141);
-  doc.text("SuppTraq Analytics", 20, 15);
+  doc.text("Supptraq Analytics", 20, 15);
   
   yPosition = 30;
   
@@ -479,7 +479,7 @@ export async function generateRepPerformancePDF(data: RepPerformanceExport) {
   doc.setFontSize(8);
   doc.setTextColor(156, 163, 175);
   doc.text(`Report generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`, 25, yPosition);
-  doc.text("SuppTraq Analytics Platform - Performance Intelligence", 25, yPosition + 5);
+  doc.text("Supptraq Analytics Platform - Performance Intelligence", 25, yPosition + 5);
   
   // Clean footer on all pages
   const pageCount = doc.getNumberOfPages();

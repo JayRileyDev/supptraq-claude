@@ -1,6 +1,7 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 import { parseTicketsStructured } from './ticketParserFixed'
+import { getUserContext } from './accessControl'
 
 // Clean, focused ticket mutations
 // Handles parsing and insertion with proper error handling
@@ -20,7 +21,6 @@ interface InsertionStats {
 // Main mutation for parsing and inserting tickets
 export const parseAndInsertTickets = mutation({
   args: {
-    user_id: v.string(),
     rows: v.array(v.array(v.string())),
     options: v.optional(v.object({
       batchSize: v.optional(v.number()),
@@ -28,7 +28,8 @@ export const parseAndInsertTickets = mutation({
       dryRun: v.optional(v.boolean())
     }))
   },
-  handler: async (ctx, { user_id, rows, options = {} }) => {
+  handler: async (ctx, { rows, options = {} }) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     const startTime = Date.now()
     const { batchSize = 100, skipDuplicates = true, dryRun = false } = options
     
@@ -91,7 +92,7 @@ export const parseAndInsertTickets = mutation({
       }
       
       // Insert tickets
-      const insertResult = await insertTicketsBatch(ctx, ticketsToInsert, user_id, batchSize)
+      const insertResult = await insertTicketsBatch(ctx, ticketsToInsert, userContext, batchSize)
       
       stats.inserted = insertResult.inserted
       stats.failed = insertResult.errors.length
@@ -130,7 +131,7 @@ export const parseAndInsertTickets = mutation({
 async function insertTicketsBatch(
   ctx: any,
   tickets: any[],
-  user_id: string,
+  userContext: any,
   batchSize: number
 ): Promise<{
   inserted: number
@@ -164,7 +165,8 @@ async function insertTicketsBatch(
           sales_rep: ticket.sales_rep,
           giftcard_amount: ticket.transaction_total,
           product_name: 'Gift Card Purchase',
-          user_id
+          orgId: userContext.orgId,
+          franchiseId: userContext.franchiseId
         })
         continue
       }
@@ -182,7 +184,8 @@ async function insertTicketsBatch(
           product_name: item.product_name,
           qty_sold: item.qty_sold, // Keep actual value (positive or negative)
           selling_unit: item.selling_unit,
-          user_id
+          orgId: userContext.orgId,
+          franchiseId: userContext.franchiseId
         }
         
         // Categorize by qty_sold sign - items go to ONLY ONE table
@@ -253,13 +256,13 @@ async function insertTicketsBatch(
 // Query to get recent tickets for validation
 export const getRecentTickets = query({
   args: {
-    user_id: v.string(),
     limit: v.optional(v.number())
   },
-  handler: async (ctx, { user_id, limit = 10 }) => {
+  handler: async (ctx, { limit = 10 }) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     const recentTickets = await ctx.db
       .query('ticket_history')
-      .filter(q => q.eq(q.field('user_id'), user_id))
+      .filter(q => q.eq(q.field('franchiseId'), userContext.franchiseId))
       .order('desc')
       .take(limit)
     
@@ -279,17 +282,17 @@ export const getRecentTickets = query({
 // Clean up duplicate tickets
 export const cleanupDuplicateTickets = mutation({
   args: {
-    user_id: v.string(),
     dryRun: v.optional(v.boolean())
   },
-  handler: async (ctx, { user_id, dryRun = true }) => {
+  handler: async (ctx, { dryRun = true }) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     const duplicates: string[] = []
     const seen = new Map<string, string>()
     
     // Find duplicates in ticket_history
     const tickets = await ctx.db
       .query('ticket_history')
-      .filter(q => q.eq(q.field('user_id'), user_id))
+      .filter(q => q.eq(q.field('franchiseId'), userContext.franchiseId))
       .take(1000) // Limit for performance
     
     for (const ticket of tickets) {
@@ -318,7 +321,6 @@ export const cleanupDuplicateTickets = mutation({
 // Create ticket upload record
 export const createTicketUploadRecord = mutation({
   args: {
-    user_id: v.string(),
     upload_name: v.string(),
     total_tickets: v.number(),
     total_entries: v.number(),
@@ -326,8 +328,11 @@ export const createTicketUploadRecord = mutation({
     status: v.string()
   },
   handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
     const uploadId = await ctx.db.insert('ticket_uploads', {
-      user_id: args.user_id,
+      user_id: userContext.userId, // Keep for backward compatibility with schema
+      orgId: userContext.orgId,
+      franchiseId: userContext.franchiseId,
       upload_name: args.upload_name,
       total_tickets: args.total_tickets,
       total_entries: args.total_entries,

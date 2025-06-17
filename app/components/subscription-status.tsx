@@ -13,6 +13,7 @@ import { Badge } from "~/components/ui/badge";
 import { Calendar, CreditCard, ExternalLink, Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { useState } from "react";
+import { formatCurrency } from "../../convex/subscriptionHelpers";
 
 export default function SubscriptionStatus() {
   const { isSignedIn } = useAuth();
@@ -128,13 +129,9 @@ export default function SubscriptionStatus() {
             <div>
               <p className="text-sm font-medium">Amount</p>
               <p className="text-sm text-muted-foreground">
-                $
                 {subscription.amount
-                  ? (subscription.amount / 100).toFixed(2)
-                  : "0.00"}{" "}
-                {subscription.currency
-                  ? subscription.currency.toUpperCase()
-                  : "USD"}
+                  ? formatCurrency(subscription.amount, subscription.currency || "USD")
+                  : "$0.00"}
               </p>
             </div>
           </div>

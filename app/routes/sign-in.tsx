@@ -8,9 +8,9 @@ import { Button } from "~/components/ui/button";
 export async function loader(args: any) {
   const { userId } = await getAuth(args);
   
-  // If user is already authenticated, redirect to onboarding (which will redirect to dashboard if already set up)
+  // If user is already authenticated, redirect directly to dashboard
   if (userId) {
-    throw redirect("/onboarding");
+    throw redirect("/dashboard");
   }
   
   return {};
@@ -44,6 +44,12 @@ export default function SignInPage() {
                   header: "hidden",
                   headerTitle: "hidden",
                   headerSubtitle: "hidden",
+                  loadingPane: "hidden",
+                  loadingText: "hidden",
+                  spinner: "hidden",
+                  modalCloseButton: "hidden",
+                  modalBackdrop: "hidden",
+                  welcomeScreen: "hidden",
                   socialButtonsBlockButton: "border border-gray-200 hover:bg-gray-50 transition-colors mb-4",
                   socialButtonsBlockButtonText: "text-gray-700 font-medium",
                   dividerLine: "bg-gray-200",
@@ -62,7 +68,8 @@ export default function SignInPage() {
                 },
                 layout: {
                   socialButtonsPlacement: "top",
-                  socialButtonsVariant: "blockButton"
+                  socialButtonsVariant: "blockButton",
+                  showOptionalFields: false
                 },
                 variables: {
                   colorPrimary: "#2563eb",
@@ -74,9 +81,14 @@ export default function SignInPage() {
                   borderRadius: "0.5rem"
                 }
               }}
-              routing="hash"
+              routing="path"
               signUpUrl="/sign-up"
-              fallbackRedirectUrl="/onboarding"
+              redirectUrl="/dashboard"
+              afterSignInUrl="/dashboard"
+              initialValues={{
+                emailAddress: "",
+                username: ""
+              }}
             />
           </div>
 

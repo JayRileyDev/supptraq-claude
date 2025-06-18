@@ -62,19 +62,13 @@ function InventoryPageContent() {
   const uploadInfo = inventoryFilters?.uploads.find(upload => upload.id === reportUploadId);
   const primaryVendor = uploadInfo?.vendor;
   
-  // Remove these unused queries for now - they need to be updated to work with the new structure
-  // const vendorBrandInfo = useQuery(
-  //   api.inventoryQueries.getVendorBrandMapping,
-  //   primaryVendor ? { primaryVendor } : "skip"
-  // );
-
-  // const uploadOverview = useQuery(
-  //   api.inventoryQueries.getUploadOverview,
-  //   { 
-  //     uploadId: filters.uploadId !== "all" ? filters.uploadId : undefined,
-  //     storeId: filters.storeId !== "all" ? filters.storeId : undefined
-  //   }
-  // );
+  const uploadOverview = useQuery(
+    api.inventoryQueries.getUploadOverview,
+    { 
+      uploadId: filters.uploadId !== "all" ? filters.uploadId : undefined,
+      storeId: filters.storeId !== "all" ? filters.storeId : undefined
+    }
+  );
 
   // Mutations
   const updateInventoryLine = useMutation(api.inventoryMutations.updateInventoryLine);
@@ -917,7 +911,9 @@ function InventoryPageContent() {
             <div className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20">
               <div>
                 <p className="text-sm text-muted-foreground">Total Transfers</p>
-                <p className="text-2xl font-bold text-foreground">0</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {uploadOverview?.transfersOutCount || 0}
+                </p>
               </div>
               <TrendingUp className="h-8 w-8 text-primary/50" />
             </div>
@@ -929,8 +925,8 @@ function InventoryPageContent() {
                 Top 5 Sold Items
               </h3>
               <div className="space-y-2">
-                {false ? (
-                  ([] as any[]).map((item, index) => (
+                {uploadOverview?.topSoldItems && uploadOverview.topSoldItems.length > 0 ? (
+                  uploadOverview.topSoldItems.map((item, index) => (
                     <motion.div
                       key={item.item_number}
                       initial={{ opacity: 0, x: -20 }}

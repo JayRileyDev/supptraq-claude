@@ -44,6 +44,7 @@ import {
   Scatter,
   ComposedChart
 } from 'recharts';
+import { PageAccessGuard } from "~/components/access/PageAccessGuard";
 
 // Color palette for charts
 const COLORS = {
@@ -310,6 +311,7 @@ export default function DashboardPage() {
   ];
 
   return (
+    <PageAccessGuard pagePath="/dashboard">
     <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 min-h-screen page-background">
       
       {/* Animated Header */}
@@ -770,5 +772,6 @@ export default function DashboardPage() {
         ))}
       </motion.div>
     </div>
+    </PageAccessGuard>
   );
 }

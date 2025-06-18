@@ -17,6 +17,7 @@ import { Switch } from "~/components/ui/switch";
 import { Label } from "~/components/ui/label";
 import { Separator } from "~/components/ui/separator";
 import { cn } from "~/lib/utils";
+import { PageAccessGuard } from "~/components/access/PageAccessGuard";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -291,8 +292,10 @@ function SalesContent() {
 // Main sales page component with provider
 export default function SalesPage() {
   return (
-    <UnifiedSalesProvider>
-      <SalesContent />
-    </UnifiedSalesProvider>
+    <PageAccessGuard pagePath="/sales">
+      <UnifiedSalesProvider>
+        <SalesContent />
+      </UnifiedSalesProvider>
+    </PageAccessGuard>
   );
 }

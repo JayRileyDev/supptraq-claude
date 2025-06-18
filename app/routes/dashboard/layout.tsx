@@ -5,8 +5,10 @@ import { useUser } from "@clerk/react-router";
 import { EnhancedSidebar } from "~/components/dashboard/enhanced-sidebar";
 import { EnhancedTopbar } from "~/components/dashboard/enhanced-topbar";
 import { UnifiedSalesProvider } from "~/components/sales/UnifiedSalesProvider";
+import { DashboardLoading } from "~/components/ui/loading";
 import { api } from "../../../convex/_generated/api";
 import { Outlet } from "react-router";
+import { Suspense } from "react";
 
 export async function loader(args: any) {
   console.log("🏁 Dashboard loader starting...");
@@ -33,28 +35,35 @@ export async function loader(args: any) {
     const user = await convex.query(api.users.getCurrentUser);
     console.log("👤 User from database:", user);
 
-    // If user doesn't exist, redirect to onboarding to create user
+    // If user doesn't exist in database, redirect to user not found page
     if (!user) {
-      console.log("❌ User doesn't exist, redirecting to onboarding");
-      throw redirect("/onboarding");
+      console.log("❌ User doesn't exist in database, redirecting to user not found");
+      throw redirect("/user-not-found");
     }
 
-    // Check if user setup is complete (has org, franchise, role)
-    console.log("🔍 Checking user setup completeness:", {
+    // Check if user account is properly set up by dev team (has org, franchise, role)
+    console.log("🔍 Checking user account setup by dev team:", {
       orgId: !!user.orgId,
       franchiseId: !!user.franchiseId,
       role: !!user.role
     });
     
     if (!user.orgId || !user.franchiseId || !user.role) {
-      console.log("❌ User setup incomplete, redirecting to onboarding");
-      throw redirect("/onboarding");
+      console.log("❌ User account not fully configured by dev team, redirecting to user not found");
+      throw redirect("/user-not-found");
     }
 
     console.log("🔍 Checking subscription status...");
-    // Check subscription status
-    const subscriptionStatus = await convex.query(api.subscriptions.checkUserSubscriptionStatus, { userId });
-    console.log("💳 Subscription status:", subscriptionStatus);
+    // Check subscription status with error handling
+    let subscriptionStatus;
+    try {
+      subscriptionStatus = await convex.query(api.subscriptions.checkUserSubscriptionStatus, { userId });
+      console.log("💳 Subscription status:", subscriptionStatus);
+    } catch (subError) {
+      console.error("❌ Subscription check failed:", subError);
+      // Allow access but user may be redirected later
+      subscriptionStatus = { hasActiveSubscription: false };
+    }
 
     // Redirect to subscription-required if no active subscription
     if (!subscriptionStatus?.hasActiveSubscription) {
@@ -73,14 +82,29 @@ export async function loader(args: any) {
       throw error;
     }
     
+    // Handle auth token expiration or invalid state
+    if (error instanceof Error && (
+      error.message.includes('token') || 
+      error.message.includes('auth') || 
+      error.message.includes('Unauthorized')
+    )) {
+      console.error("🔑 Authentication error, redirecting to sign-in:", error.message);
+      throw redirect("/sign-in");
+    }
+    
     // Only catch actual errors, not redirects
     console.error("❌ Dashboard loader error:", error);
-    throw redirect("/onboarding");
+    throw redirect("/user-not-found");
   }
 }
 
 export default function DashboardLayout() {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
+
+  // Show custom loading while user data loads
+  if (!isLoaded) {
+    return <DashboardLoading />;
+  }
 
   return (
     <UnifiedSalesProvider>
@@ -89,7 +113,9 @@ export default function DashboardLayout() {
         <div className="flex-1 flex flex-col overflow-hidden">
           <EnhancedTopbar />
           <main className="flex-1 overflow-y-auto bg-background">
-            <Outlet />
+            <Suspense fallback={<DashboardLoading />}>
+              <Outlet />
+            </Suspense>
           </main>
         </div>
       </div>

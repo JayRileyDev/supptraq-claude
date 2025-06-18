@@ -4,6 +4,7 @@ import { httpAction } from "./_generated/server";
 import { openai } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import { api } from "./_generated/api";
+import { createClerkClient } from "@clerk/backend";
 
 const SYSTEM_PROMPT = `You are the intelligent executive assistant for Supptraq — an AI-native retail analytics platform that helps franchise owners, inventory managers, and regional directors understand performance, risk, and opportunity across all stores, sales reps, and inventory.
 
@@ -228,6 +229,204 @@ http.route({
   path: "/payments/webhook",
   method: "POST",
   handler: paymentWebhook,
+});
+
+// Admin endpoint to create complete user (Clerk + Convex)
+const createCompleteUser = httpAction(async (ctx, request) => {
+  try {
+    const body = await request.json();
+    const { email, username, password, name, orgId, franchiseId, createNewFranchise, role, allowedPages } = body;
+
+    // Validate required fields
+    if (!email || !username || !password || !name || !role) {
+      return new Response(JSON.stringify({ 
+        error: "Missing required fields",
+        required: ["email", "username", "password", "name", "role"]
+      }), {
+        status: 400,
+        headers: { 
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        }
+      });
+    }
+
+    // Validate franchise assignment logic
+    if (!createNewFranchise && !franchiseId) {
+      return new Response(JSON.stringify({ 
+        error: "Must either select an existing franchise or choose to create a new one",
+      }), {
+        status: 400,
+        headers: { 
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        }
+      });
+    }
+
+    // If creating new franchise, orgId is required
+    if (createNewFranchise && !orgId) {
+      return new Response(JSON.stringify({ 
+        error: "Organization ID is required when creating a new franchise",
+      }), {
+        status: 400,
+        headers: { 
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        }
+      });
+    }
+
+    // Initialize Clerk client
+    const clerk = createClerkClient({ 
+      secretKey: process.env.CLERK_SECRET_KEY 
+    });
+
+    // Step 1: Create user in Clerk
+    let clerkUser;
+    try {
+      clerkUser = await clerk.users.createUser({
+        emailAddress: [email],
+        username: username,
+        password: password,
+        firstName: name.split(' ')[0] || name,
+        lastName: name.split(' ').slice(1).join(' ') || undefined,
+        skipPasswordChecks: true, // Allow simple passwords for admin-created accounts
+        skipPasswordRequirement: false,
+      });
+      
+      console.log("✅ Clerk user created:", clerkUser.id);
+    } catch (clerkError: any) {
+      console.error("❌ Clerk user creation failed:", clerkError);
+      return new Response(JSON.stringify({ 
+        error: "Failed to create Clerk user",
+        details: clerkError.message,
+        code: clerkError.code
+      }), {
+        status: 400,
+        headers: { 
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        }
+      });
+    }
+
+    // Step 2: Create user profile in Convex
+    let result;
+    try {
+      if (createNewFranchise) {
+        // Create user with new franchise
+        result = await ctx.runMutation(api.admin.createUserWithNewFranchise, {
+          email,
+          name,
+          orgId,
+          role,
+          allowedPages: role === "member" ? allowedPages : undefined,
+          clerkId: clerkUser.id, // Link to Clerk user
+        });
+      } else {
+        // Add user to existing franchise
+        result = await ctx.runMutation(api.admin.createUserWithExistingFranchise, {
+          email,
+          name,
+          franchiseId,
+          role,
+          allowedPages: role === "member" ? allowedPages : undefined,
+          clerkId: clerkUser.id, // Link to Clerk user
+        });
+      }
+
+      // Step 3: Update the user's tokenIdentifier with the actual Clerk ID
+      await ctx.runMutation(api.admin.updateUserTokenIdentifier, {
+        email,
+        tokenIdentifier: clerkUser.id, // Use raw Clerk ID
+      });
+
+      console.log("✅ Complete user creation successful");
+
+      return new Response(JSON.stringify({ 
+        success: true,
+        clerkUserId: clerkUser.id,
+        convexUserId: result.userId,
+        credentials: {
+          email,
+          username,
+          password // Return for admin to share with user
+        }
+      }), {
+        status: 200,
+        headers: { 
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        }
+      });
+
+    } catch (convexError: any) {
+      console.error("❌ Convex user creation failed:", convexError);
+      
+      // If Convex fails, try to clean up Clerk user
+      try {
+        await clerk.users.deleteUser(clerkUser.id);
+        console.log("🧹 Cleaned up Clerk user after Convex failure");
+      } catch (cleanupError) {
+        console.error("⚠️ Failed to cleanup Clerk user:", cleanupError);
+      }
+
+      return new Response(JSON.stringify({ 
+        error: "Failed to create Convex user profile",
+        details: convexError.message
+      }), {
+        status: 500,
+        headers: { 
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        }
+      });
+    }
+
+  } catch (error: any) {
+    console.error("❌ Complete user creation failed:", error);
+    return new Response(JSON.stringify({ 
+      error: "Internal server error",
+      details: error.message
+    }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+});
+
+http.route({
+  path: "/admin/create-user",
+  method: "POST",
+  handler: createCompleteUser,
+});
+
+http.route({
+  path: "/admin/create-user",
+  method: "OPTIONS",
+  handler: httpAction(async (_, request) => {
+    return new Response(null, {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }),
 });
 
 // Log that routes are configured

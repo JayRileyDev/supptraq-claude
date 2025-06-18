@@ -34,10 +34,10 @@ export function PageAccessGuard({ pagePath, children }: PageAccessGuardProps) {
             <Shield className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h3 className="text-lg font-semibold">Account Setup Required</h3>
             <p className="text-muted-foreground mb-4">
-              Your account needs to be set up before you can access this page.
+              Your account is being prepared by our team.
             </p>
             <Button asChild>
-              <Link to="/onboarding">Complete Setup</Link>
+              <Link to="/user-not-found">Contact Support</Link>
             </Button>
           </CardContent>
         </Card>

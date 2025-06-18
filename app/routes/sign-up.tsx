@@ -10,9 +10,9 @@ import { Crown, Sparkles, CheckCircle, Loader2 } from "lucide-react";
 export async function loader(args: any) {
   const { userId } = await getAuth(args);
   
-  // If user is already authenticated, redirect to onboarding (which will redirect to dashboard if already set up)
+  // If user is already authenticated, redirect directly to dashboard
   if (userId) {
-    throw redirect("/onboarding");
+    throw redirect("/dashboard");
   }
   
   return {};
@@ -225,9 +225,9 @@ export default function SignUpPage() {
                   borderRadius: "0.5rem"
                 }
               }}
-              routing="hash"
+              routing="path"
               signInUrl="/sign-in"
-              fallbackRedirectUrl="/onboarding"
+              fallbackRedirectUrl="/dashboard"
             />
           </div>
 

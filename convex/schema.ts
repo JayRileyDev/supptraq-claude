@@ -4,7 +4,7 @@ import { v } from "convex/values";
 export default defineSchema({
   organizations: defineTable({
     name: v.string(), // e.g. "Supplement King"
-    createdBy: v.id("users"),
+    createdBy: v.optional(v.id("users")),
     createdAt: v.number(),
   })
     .index("by_created_by", ["createdBy"]),
@@ -13,7 +13,7 @@ export default defineSchema({
     name: v.string(), // e.g. "Trevor Murphy Group"
     franchiseId: v.string(), // e.g. "trevor-murphy-sk"
     orgId: v.id("organizations"), // belongs to Supplement King
-    ownerId: v.id("users"), // franchise owner
+    ownerId: v.optional(v.id("users")), // franchise owner
     createdAt: v.number(),
   })
     .index("by_org", ["orgId"])

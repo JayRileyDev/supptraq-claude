@@ -6,6 +6,8 @@ import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
 import { ThemeToggle } from "~/components/ui/theme-toggle";
 import { Zap, ChevronLeft, ChevronRight, BarChart3, HardDrive, Settings, MessageSquare } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 
 const navigationItems = [
   {
@@ -68,6 +70,34 @@ interface EnhancedSidebarProps {
 export function EnhancedSidebar({ user }: EnhancedSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
+  const currentUser = useQuery(api.users.getCurrentUser);
+
+  // Filter navigation items based on user permissions
+  const allowedNavigationItems = navigationItems.filter(item => {
+    // Owners have access to all pages
+    if (currentUser?.role === "owner") return true;
+    
+    // Members only have access to pages in their allowedPages array
+    if (currentUser?.role === "member") {
+      return currentUser.allowedPages?.includes(item.url) || false;
+    }
+    
+    // Default: no access if role is undefined
+    return false;
+  });
+
+  const allowedSecondaryItems = secondaryItems.filter(item => {
+    // Settings is available to all authenticated users
+    if (item.url === "/settings") return true;
+    
+    // Apply same logic as navigation items for other secondary items
+    if (currentUser?.role === "owner") return true;
+    if (currentUser?.role === "member") {
+      return currentUser.allowedPages?.includes(item.url) || false;
+    }
+    
+    return false;
+  });
 
   const isActive = (url: string) => {
     if (url === "/dashboard") {
@@ -117,7 +147,7 @@ export function EnhancedSidebar({ user }: EnhancedSidebarProps) {
       {/* Navigation */}
       <div className="flex-1 overflow-y-auto p-4">
         <nav className="space-y-1">
-          {navigationItems.map((item, index) => (
+          {allowedNavigationItems.map((item, index) => (
             <Link
               key={item.url}
               to={item.url}
@@ -165,7 +195,7 @@ export function EnhancedSidebar({ user }: EnhancedSidebarProps) {
       {/* Footer */}
       <div className="p-4 border-t border-border space-y-3">
         {/* Secondary Nav */}
-        {secondaryItems.map((item) => (
+        {allowedSecondaryItems.map((item) => (
           <Link
             key={item.url}
             to={item.url}

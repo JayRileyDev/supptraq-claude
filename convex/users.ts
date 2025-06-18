@@ -48,7 +48,7 @@ export const upsertUser = mutation({
       return null;
     }
 
-    // Check if user exists
+    // Check if user exists by token
     const existingUser = await ctx.db
       .query("users")
       .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.subject))
@@ -68,7 +68,35 @@ export const upsertUser = mutation({
       return existingUser;
     }
 
-    // Create new user (this will need onboarding)
+    // Check if there's a pre-created profile with this email
+    const preCreatedProfile = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("email"), identity.email))
+      .first();
+
+    if (preCreatedProfile && preCreatedProfile.tokenIdentifier.startsWith("pending_")) {
+      // Link the Clerk account to the pre-created profile
+      await ctx.db.patch(preCreatedProfile._id, {
+        tokenIdentifier: identity.subject,
+        name: identity.name || preCreatedProfile.name,
+      });
+
+      // Update subscription userId if exists
+      const subscription = await ctx.db
+        .query("subscriptions")
+        .filter((q) => q.eq(q.field("userId"), preCreatedProfile.tokenIdentifier))
+        .first();
+
+      if (subscription) {
+        await ctx.db.patch(subscription._id, {
+          userId: identity.subject,
+        });
+      }
+
+      return await ctx.db.get(preCreatedProfile._id);
+    }
+
+    // Create new user (this will show account-pending page since no org/franchise)
     const userId = await ctx.db.insert("users", {
       name: identity.name,
       email: identity.email,

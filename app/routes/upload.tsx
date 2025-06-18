@@ -7,10 +7,12 @@ import SkuVendorMapUpload from '~/components/upload/SkuVendorMapUpload'
 import { api } from '../../convex/_generated/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
+import { PageAccessGuard } from "~/components/access/PageAccessGuard";
 // Loader removed - authentication and subscription checks handled by dashboard layout
 
 export default function UploadPage() {
     return (
+        <PageAccessGuard pagePath="/upload">
         <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 min-h-screen bg-gradient-to-br from-background via-background to-background/50">
             {/* Header */}
             <motion.div
@@ -154,5 +156,6 @@ export default function UploadPage() {
                 </motion.div>
             </div>
         </div>
+        </PageAccessGuard>
     )
 }

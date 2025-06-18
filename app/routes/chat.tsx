@@ -23,6 +23,7 @@ import {
 import { cn } from "~/lib/utils";
 import { useState, useEffect } from "react";
 import { useAuth, useUser } from "@clerk/react-router";
+import { PageAccessGuard } from "~/components/access/PageAccessGuard";
 
 
 const CONVEX_SITE_URL = import.meta.env.VITE_CONVEX_URL!.replace(
@@ -120,6 +121,7 @@ export default function Chat() {
   };
 
   return (
+    <PageAccessGuard pagePath="/chat">
     <div className="min-h-screen bg-background">
       {/* Header Section */}
       <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
@@ -392,5 +394,6 @@ export default function Chat() {
         </div>
       </div>
     </div>
+    </PageAccessGuard>
   );
 }

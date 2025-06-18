@@ -17,6 +17,7 @@
     "@clerk/react-router": "^1.4.8",
     "@convex-dev/polar": "^0.4.5",
     "@polar-sh/sdk": "^0.32.16",
+    "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-checkbox": "^1.3.2",
     "@radix-ui/react-collapsible": "^1.1.11",

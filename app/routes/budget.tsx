@@ -5,6 +5,7 @@ import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { Progress } from "~/components/ui/progress";
 import { cn } from "~/lib/utils";
+import { PageAccessGuard } from "~/components/access/PageAccessGuard";
 
 
 function MetricCard({ 
@@ -247,6 +248,7 @@ function SpendingChart({ data }: { data: any[] }) {
 export default function BudgetPage() {
 
   return (
+    <PageAccessGuard pagePath="/budget">
     <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 min-h-screen bg-gradient-to-br from-background via-background to-background/50">
       {/* Header */}
       <motion.div
@@ -336,5 +338,6 @@ export default function BudgetPage() {
         </Card>
       </motion.div>
     </div>
+    </PageAccessGuard>
   );
 }

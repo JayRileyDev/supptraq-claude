@@ -4,10 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
+import { PageAccessGuard } from "~/components/access/PageAccessGuard";
 
 
 export default function ReportsPage() {
   return (
+    <PageAccessGuard pagePath="/reports">
     <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 min-h-screen bg-gradient-to-br from-background via-background to-background/50">
       {/* Header */}
       <motion.div
@@ -97,5 +99,6 @@ export default function ReportsPage() {
         </Card>
       </motion.div>
     </div>
+    </PageAccessGuard>
   );
 }

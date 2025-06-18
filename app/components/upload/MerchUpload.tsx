@@ -41,7 +41,6 @@ export default function MerchUpload() {
             console.log(`🚚 Uploading chunk: ${i}–${i + chunk.length} (index: ${chunkIndex})`)
 
             const response: any = await insertMerch({
-              user_id: userId,
               rows: chunk,
               chunk_index: chunkIndex,
               ...(metadata && { metadata }) // Only include metadata if it exists

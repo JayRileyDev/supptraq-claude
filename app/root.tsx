@@ -20,7 +20,7 @@ import { Toaster } from "sonner";
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
 export async function loader(args: Route.LoaderArgs) {
-  return rootAuthLoader(args);
+  return await rootAuthLoader(args);
 }
 export const links: Route.LinksFunction = () => [
   // DNS prefetch for external services
@@ -102,11 +102,35 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App({ loaderData }: Route.ComponentProps) {
+  // Get publishable key with fallback
+  const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || "pk_test_d2l0dHktbGFkeWJpcmQtMjIuY2xlcmsuYWNjb3VudHMuZGV2JA";
+  
+  console.log("🔑 Clerk publishable key:", publishableKey ? "Found" : "Missing");
+  console.log("🌍 Environment check:", {
+    hasViteClerkKey: !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+    hasViteConvexUrl: !!import.meta.env.VITE_CONVEX_URL,
+    mode: import.meta.env.MODE,
+    dev: import.meta.env.DEV
+  });
+  
+  if (!publishableKey) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Configuration Error</h1>
+          <p className="text-gray-600 mb-4">Clerk publishable key is missing.</p>
+          <p className="text-sm text-gray-500">Please check your .env.local file and restart the dev server.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <ClerkProvider
+      publishableKey={publishableKey}
       loaderData={loaderData}
-      signUpFallbackRedirectUrl="/onboarding"
-      signInFallbackRedirectUrl="/onboarding"
+      signUpFallbackRedirectUrl="/dashboard"
+      signInFallbackRedirectUrl="/dashboard"
     >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
         <ThemeProvider

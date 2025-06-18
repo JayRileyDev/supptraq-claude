@@ -1,6 +1,7 @@
 import { query, mutation } from './_generated/server'
 import { v } from 'convex/values'
 import type { Id } from './_generated/dataModel'
+import { getUserContext } from './accessControl'
 
 interface SkuEntry {
   _id: Id<'sku_vendor_map'>
@@ -13,7 +14,14 @@ interface SkuEntry {
 
 export const list = query({
   handler: async (ctx) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db)
+    if (!userContext) {
+      return {}
+    }
+    const { orgId } = userContext
+    
     const skuEntries = await ctx.db.query('sku_vendor_map')
+      .withIndex('by_org', q => q.eq('orgId', orgId))
       .take(1000)
     
     const skuMap: Record<string, string> = {}
@@ -30,10 +38,14 @@ export const list = query({
 
 export const uploadSkuVendorMap = mutation({
   args: {
-    user_id: v.string(),
     rows: v.array(v.array(v.string()))
   },
-  handler: async (ctx, { user_id, rows }) => {
+  handler: async (ctx, { rows }) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db)
+    if (!userContext) {
+      throw new Error("No active organization or franchise")
+    }
+    const { orgId } = userContext
     let inserted = 0
     let skipped = 0
     let errors: string[] = []
@@ -62,7 +74,8 @@ export const uploadSkuVendorMap = mutation({
           description: description.trim(),
           vendor: vendor?.trim() || '',
           brand: brand?.trim() || '',
-          retail_price
+          retail_price,
+          orgId
         })
         inserted++
       } catch (error) {

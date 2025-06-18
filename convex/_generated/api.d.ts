@@ -9,6 +9,8 @@
  */
 
 import type * as accessControl from "../accessControl.js";
+import type * as admin from "../admin.js";
+import type * as adminAuth from "../adminAuth.js";
 import type * as aiBusinessQueries from "../aiBusinessQueries.js";
 import type * as businessQueries from "../businessQueries.js";
 import type * as dashboardCache from "../dashboardCache.js";
@@ -58,6 +60,8 @@ import type {
  */
 declare const fullApi: ApiFromModules<{
   accessControl: typeof accessControl;
+  admin: typeof admin;
+  adminAuth: typeof adminAuth;
   aiBusinessQueries: typeof aiBusinessQueries;
   businessQueries: typeof businessQueries;
   dashboardCache: typeof dashboardCache;

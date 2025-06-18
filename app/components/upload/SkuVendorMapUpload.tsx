@@ -28,7 +28,6 @@ export default function SkuVendorMapUpload() {
           console.log('📋 Parsed SKU rows:', rows.length)
 
           const response: any = await uploadSkuMap({
-            user_id: userId,
             rows: rows
           })
 

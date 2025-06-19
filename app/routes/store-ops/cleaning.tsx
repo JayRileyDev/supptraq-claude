@@ -15,6 +15,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "~/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { 
   Sparkles, 
   Plus,
@@ -24,9 +31,12 @@ import {
   Clock,
   Filter,
   RotateCcw,
-  Trash2
+  Trash2,
+  Target,
+  Users
 } from "lucide-react";
 import { cn } from "~/lib/utils";
+import { motion } from "framer-motion";
 
 const CATEGORY_COLORS: Record<string, string> = {
   "Lifestyle": "bg-blue-100 text-blue-700 border-blue-200",
@@ -130,136 +140,187 @@ export default function CleaningSheet() {
   const categories = ["all", "Lifestyle", "Mass Gainer", "Main Wall", "Other"];
 
   return (
-    <div className="p-8">
-      <div className="mb-8 flex items-center justify-between">
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-between"
+      >
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Cleaning Sheet</h1>
-          <p className="mt-2 text-gray-600">
-            Track store cleaning tasks and schedules
-          </p>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-primary/10 rounded-xl border border-primary/20">
+              <Sparkles className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Cleaning Sheet</h1>
+              <p className="text-muted-foreground">
+                Track store cleaning tasks and schedules
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1 }}
+          className="flex items-center gap-4"
+        >
+          <div className="flex items-center gap-2">
+            <Label htmlFor="initials" className="text-sm font-medium text-muted-foreground">
+              Your initials:
+            </Label>
             <Input
-              placeholder="Your initials"
+              id="initials"
+              placeholder="ABC"
               value={userInitials}
               onChange={(e) => setUserInitials(e.target.value.toUpperCase())}
-              className="w-24 text-center"
+              className="w-20 text-center font-mono border-0 bg-muted/50 focus:bg-background"
               maxLength={3}
             />
           </div>
-          <Button onClick={() => setIsAddOpen(true)} variant="outline">
+          <Button onClick={() => setIsAddOpen(true)} variant="outline" className="shadow-sm">
             <Plus className="mr-2 h-4 w-4" />
             Add Area
           </Button>
           <Button 
             onClick={handleMarkCleaned}
             disabled={selectedAreas.size === 0 || !userInitials}
+            className="shadow-lg"
           >
             <CheckCircle className="mr-2 h-4 w-4" />
             Mark Cleaned ({selectedAreas.size})
           </Button>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       {/* Stats Cards */}
       {stats && (
-        <div className="mb-6 grid gap-4 md:grid-cols-5">
-          <Card>
-            <CardContent className="p-6">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="grid gap-4 md:grid-cols-2 lg:grid-cols-5"
+        >
+          <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-200">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Total Areas</p>
-                  <p className="text-2xl font-bold">{stats.total}</p>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Total Areas</p>
+                  <p className="text-xl font-bold text-foreground">{stats.total}</p>
                 </div>
-                <Sparkles className="h-8 w-8 text-gray-400" />
+                <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-200 dark:border-blue-800">
+                  <Target className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
+          <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-200">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Completed</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Completed</p>
+                  <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{stats.completed}</p>
                 </div>
-                <CheckCircle className="h-8 w-8 text-green-600" />
+                <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-200 dark:border-emerald-800">
+                  <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
               </div>
-              <div className="mt-2 h-2 rounded-full bg-gray-200">
+              <div className="mt-2 h-1.5 rounded-full bg-muted">
                 <div
-                  className="h-2 rounded-full bg-green-600 transition-all"
+                  className="h-1.5 rounded-full bg-emerald-600 transition-all duration-500"
                   style={{ width: `${stats.completionRate}%` }}
                 />
               </div>
             </CardContent>
           </Card>
 
-          <Card className={stats.overdue > 0 ? "ring-2 ring-red-500" : ""}>
-            <CardContent className="p-6">
+          <Card className={cn(
+            "border-0 shadow-sm hover:shadow-lg transition-all duration-200",
+            stats.overdue > 0 && "ring-2 ring-red-500/20 bg-red-50/50 dark:bg-red-900/10"
+          )}>
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Overdue</p>
-                  <p className="text-2xl font-bold text-red-600">{stats.overdue}</p>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Overdue</p>
+                  <p className="text-xl font-bold text-red-600 dark:text-red-400">{stats.overdue}</p>
                 </div>
-                <AlertCircle className="h-8 w-8 text-red-600" />
+                <div className="p-2 rounded-lg bg-red-500/10 border border-red-200 dark:border-red-800">
+                  <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
+          <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-200">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Due Soon</p>
-                  <p className="text-2xl font-bold text-yellow-600">{stats.dueSoon}</p>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Due Soon</p>
+                  <p className="text-xl font-bold text-amber-600 dark:text-amber-400">{stats.dueSoon}</p>
                 </div>
-                <Clock className="h-8 w-8 text-yellow-600" />
+                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-200 dark:border-amber-800">
+                  <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
+          <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-200">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Completion</p>
-                  <p className="text-2xl font-bold">{stats.completionRate}%</p>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Completion</p>
+                  <p className="text-xl font-bold text-violet-600 dark:text-violet-400">{stats.completionRate}%</p>
                 </div>
-                <Calendar className="h-8 w-8 text-blue-600" />
+                <div className="p-2 rounded-lg bg-violet-500/10 border border-violet-200 dark:border-violet-800">
+                  <Calendar className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                </div>
               </div>
             </CardContent>
           </Card>
-        </div>
+        </motion.div>
       )}
 
       {/* Filter Bar */}
-      <div className="mb-6 flex items-center gap-4">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg border"
+      >
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-gray-500" />
-          <span className="text-sm font-medium">Filter by category:</span>
+          <Filter className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium text-foreground">Filter by category:</span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {categories.map((category) => (
             <Button
               key={category}
               variant={categoryFilter === category ? "default" : "outline"}
               size="sm"
               onClick={() => setCategoryFilter(category)}
+              className="shadow-sm"
             >
               {category === "all" ? "All Categories" : category}
               {stats?.byCategory[category] && (
-                <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
+                <Badge variant="secondary" className="ml-2 h-4 px-1.5 text-xs">
                   {stats.byCategory[category].completed}/{stats.byCategory[category].total}
                 </Badge>
               )}
             </Button>
           ))}
         </div>
-      </div>
+      </motion.div>
 
       {/* Cleaning Areas Grid */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="grid gap-6 lg:grid-cols-2"
+      >
         {Object.entries(
           logs?.reduce((acc, log) => {
             if (!acc[log.area_category]) acc[log.area_category] = [];
@@ -267,18 +328,43 @@ export default function CleaningSheet() {
             return acc;
           }, {} as Record<string, typeof logs>) || {}
         ).map(([category, categoryLogs]) => (
-          <Card key={category}>
-            <CardHeader className={cn("border-b", CATEGORY_COLORS[category] || CATEGORY_COLORS.Other)}>
-              <CardTitle className="text-lg">{category}</CardTitle>
+          <Card key={category} className="border-0 shadow-sm hover:shadow-lg transition-all duration-200">
+            <CardHeader className={cn(
+              "border-b border-border",
+              category === "Lifestyle" && "bg-blue-50/50 dark:bg-blue-900/10",
+              category === "Mass Gainer" && "bg-purple-50/50 dark:bg-purple-900/10", 
+              category === "Main Wall" && "bg-emerald-50/50 dark:bg-emerald-900/10",
+              category === "Other" && "bg-gray-50/50 dark:bg-gray-900/10"
+            )}>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <div className={cn(
+                    "w-3 h-3 rounded-full",
+                    category === "Lifestyle" && "bg-blue-500",
+                    category === "Mass Gainer" && "bg-purple-500",
+                    category === "Main Wall" && "bg-emerald-500", 
+                    category === "Other" && "bg-gray-500"
+                  )} />
+                  {category}
+                </CardTitle>
+                <Badge variant="outline" className="text-xs">
+                  {categoryLogs.length} areas
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="divide-y">
-                {categoryLogs.map((log) => (
-                  <div
+              <div className="divide-y divide-border">
+                {categoryLogs.map((log, index) => (
+                  <motion.div
                     key={log._id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 + index * 0.05 }}
                     className={cn(
                       "flex items-center justify-between p-4 transition-colors",
-                      log.is_completed ? "bg-green-50" : "hover:bg-gray-50"
+                      log.is_completed 
+                        ? "bg-emerald-50/50 dark:bg-emerald-900/10" 
+                        : "hover:bg-muted/50"
                     )}
                   >
                     <div className="flex items-center gap-3">
@@ -286,48 +372,53 @@ export default function CleaningSheet() {
                         checked={selectedAreas.has(log._id)}
                         onCheckedChange={() => toggleAreaSelection(log._id)}
                         disabled={log.is_completed}
+                        className="border-2"
                       />
-                      <div>
-                        <p className="font-medium">{log.area_name}</p>
-                        <p className={cn("text-sm", getStatusColor(log))}>
-                          {getStatusLabel(log)}
-                        </p>
-                        {log.cleaned_by && (
-                          <p className="text-xs text-gray-500">
-                            by {log.cleaned_by}
-                          </p>
-                        )}
+                      <div className="space-y-1">
+                        <p className="font-medium text-foreground">{log.area_name}</p>
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant="secondary" 
+                            className={cn("text-xs", getStatusColor(log))}
+                          >
+                            {getStatusLabel(log)}
+                          </Badge>
+                          {log.cleaned_by && (
+                            <Badge variant="outline" className="text-xs">
+                              <Users className="w-3 h-3 mr-1" />
+                              {log.cleaned_by}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
                       {log.is_completed && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-8 w-8 hover:bg-amber-100 dark:hover:bg-amber-900/30"
                           onClick={() => resetArea({ cleaningLogId: log._id })}
                         >
-                          <RotateCcw className="h-4 w-4" />
+                          <RotateCcw className="h-4 w-4 text-amber-600" />
                         </Button>
                       )}
-                      {(
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => deleteArea({ cleaningLogId: log._id })}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 hover:bg-red-100 dark:hover:bg-red-900/30"
+                        onClick={() => deleteArea({ cleaningLogId: log._id })}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </CardContent>
           </Card>
         ))}
-      </div>
+      </motion.div>
 
       {/* Add Area Dialog */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
@@ -349,17 +440,20 @@ export default function CleaningSheet() {
 
             <div>
               <Label htmlFor="area_category">Category</Label>
-              <select
-                id="area_category"
-                className="w-full rounded-md border border-gray-300 p-2"
+              <Select
                 value={newArea.area_category}
-                onChange={(e) => setNewArea({ ...newArea, area_category: e.target.value })}
+                onValueChange={(value) => setNewArea({ ...newArea, area_category: value })}
               >
-                <option value="Lifestyle">Lifestyle</option>
-                <option value="Mass Gainer">Mass Gainer</option>
-                <option value="Main Wall">Main Wall</option>
-                <option value="Other">Other</option>
-              </select>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Lifestyle">Lifestyle</SelectItem>
+                  <SelectItem value="Mass Gainer">Mass Gainer</SelectItem>
+                  <SelectItem value="Main Wall">Main Wall</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -377,12 +471,29 @@ export default function CleaningSheet() {
         </DialogContent>
       </Dialog>
 
-      <div className="mt-6 rounded-lg bg-blue-50 p-4">
-        <p className="text-sm text-blue-800">
-          💡 Tip: Uncheck boxes at the beginning of each month, but keep the dates for reference. 
-          Select multiple areas and mark them as cleaned at once.
-        </p>
-      </div>
+      {/* Helpful Tip */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+      >
+        <Card className="border-0 shadow-sm bg-blue-50/50 dark:bg-blue-900/10">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-200 dark:border-blue-800">
+                <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-1">Pro Tip</h4>
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  Uncheck boxes at the beginning of each month, but keep the dates for reference. 
+                  Select multiple areas and mark them as cleaned at once for efficiency.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 }

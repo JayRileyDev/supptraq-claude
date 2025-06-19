@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
-import { Settings, Users, Building, ArrowRight } from "lucide-react";
+import { Settings, Building, ArrowRight } from "lucide-react";
 
 export default function AdminQuickAccess() {
   return (
@@ -16,7 +16,7 @@ export default function AdminQuickAccess() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-1 gap-6 max-w-2xl mx-auto">
           <Card className="glow-card border-border/50 hover:border-primary/50 transition-colors">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -36,31 +36,6 @@ export default function AdminQuickAccess() {
               <Button asChild className="w-full">
                 <Link to="/admin/setup">
                   Go to Setup
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="glow-card border-border/50 hover:border-primary/50 transition-colors">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-6 w-6 text-green-500" />
-                User Management
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-muted-foreground">
-                Create user profiles that will be automatically linked when users sign up.
-              </p>
-              <div className="space-y-2">
-                <div className="text-sm">👤 Create user profiles</div>
-                <div className="text-sm">🏢 Assign to organizations</div>
-                <div className="text-sm">🔐 Set roles and permissions</div>
-              </div>
-              <Button asChild className="w-full">
-                <Link to="/admin/users">
-                  Manage Users
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>

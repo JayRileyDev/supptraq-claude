@@ -4,33 +4,33 @@ import { TrendingUp, Clock, Target } from "lucide-react";
 export default function ResultsSection() {
   const results = [
     {
-      metric: "23%",
-      label: "Reduction in Stockouts",
-      description: "Never miss a sale due to empty shelves again",
+      metric: "$120K",
+      label: "Operations Manager Replaced",
+      description: "Get the insights and control without the payroll",
       icon: Target,
       color: "from-green-500 to-emerald-500"
     },
     {
-      metric: "31%",
-      label: "Faster Reordering",
-      description: "Automated alerts and smart recommendations",
+      metric: "20+",
+      label: "Hours Saved Weekly",
+      description: "Your managers focus on selling, not spreadsheets",
       icon: Clock,
       color: "from-blue-500 to-cyan-500"
     },
     {
-      metric: "15+",
-      label: "Hours Saved Weekly",
-      description: "Time freed up for strategic decisions",
+      metric: "100%",
+      label: "Store Visibility",
+      description: "Know exactly what's happening across all locations",
       icon: TrendingUp,
       color: "from-purple-500 to-pink-500"
     }
   ];
 
   const testimonial = {
-    quote: "Supptraq transformed how we manage inventory across our 12 locations. We went from reactive firefighting to proactive optimization. Our profit margins improved 18% in just 6 months.",
-    author: "Marcus Thompson",
-    title: "Regional Operations Manager",
-    company: "NutriZone Franchises"
+    quote: "Supptraq gives me the visibility I never had before. I can see which stores are performing, which reps need coaching, and what inventory to move — all without drowning my managers in spreadsheets. It's like having a COO that never sleeps.",
+    author: "Trevor Murphy",
+    title: "Owner",
+    company: "Supplement King"
   };
 
   return (
@@ -55,9 +55,9 @@ export default function ResultsSection() {
             viewport={{ once: true }}
             className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl lg:text-6xl mb-6"
           >
-            Drive{" "}
+            Finally Have{" "}
             <span className="bg-gradient-to-r from-green-500 via-blue-500 to-purple-500 bg-clip-text text-transparent">
-              Real Results
+              Total Control
             </span>
           </motion.h2>
           <motion.p
@@ -67,7 +67,7 @@ export default function ResultsSection() {
             viewport={{ once: true }}
             className="text-xl text-gray-600 max-w-3xl mx-auto"
           >
-            Join hundreds of franchise operators who've transformed their operations with data-driven decisions
+            Smart franchise owners are replacing expensive operations managers with Supptraq — and keeping the savings.
           </motion.p>
         </motion.div>
 

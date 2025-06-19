@@ -50,6 +50,7 @@ export interface FilterOptions {
   includeGiftCards?: boolean;
 }
 
+
 // Get all ticket data from the three tables safely
 export async function getAllTicketData(
   db: DatabaseReader,

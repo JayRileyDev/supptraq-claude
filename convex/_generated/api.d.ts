@@ -11,18 +11,13 @@
 import type * as accessControl from "../accessControl.js";
 import type * as admin from "../admin.js";
 import type * as adminAuth from "../adminAuth.js";
-import type * as aiBusinessQueries from "../aiBusinessQueries.js";
-import type * as businessQueries from "../businessQueries.js";
 import type * as callbacks from "../callbacks.js";
 import type * as cleaningLogs from "../cleaningLogs.js";
 import type * as closeDatedInventory from "../closeDatedInventory.js";
 import type * as dailyChecklists from "../dailyChecklists.js";
 import type * as dashboardCache from "../dashboardCache.js";
 import type * as dashboardQueries from "../dashboardQueries.js";
-import type * as diagnosticQueries from "../diagnosticQueries.js";
-import type * as diagnostics from "../diagnostics.js";
 import type * as dlChecklists from "../dlChecklists.js";
-import type * as fixDataStructure from "../fixDataStructure.js";
 import type * as http from "../http.js";
 import type * as inventory from "../inventory.js";
 import type * as inventoryMutations from "../inventoryMutations.js";
@@ -42,18 +37,14 @@ import type * as storeProfiles from "../storeProfiles.js";
 import type * as subscriptionHelpers from "../subscriptionHelpers.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as tabletCounts from "../tabletCounts.js";
-import type * as testSalesData from "../testSalesData.js";
 import type * as ticketHistoryEnhanced from "../ticketHistoryEnhanced.js";
 import type * as ticketMutations from "../ticketMutations.js";
 import type * as ticketParserFixed from "../ticketParserFixed.js";
 import type * as ticketStats from "../ticketStats.js";
-import type * as ticketValidation from "../ticketValidation.js";
-import type * as updateFranchiseIds from "../updateFranchiseIds.js";
 import type * as users from "../users.js";
 import type * as utils_dataAggregation from "../utils/dataAggregation.js";
 import type * as utils_inventoryOptimization from "../utils/inventoryOptimization.js";
 import type * as utils_pagination from "../utils/pagination.js";
-import type * as verifyFixedStructure from "../verifyFixedStructure.js";
 
 import type {
   ApiFromModules,
@@ -73,18 +64,13 @@ declare const fullApi: ApiFromModules<{
   accessControl: typeof accessControl;
   admin: typeof admin;
   adminAuth: typeof adminAuth;
-  aiBusinessQueries: typeof aiBusinessQueries;
-  businessQueries: typeof businessQueries;
   callbacks: typeof callbacks;
   cleaningLogs: typeof cleaningLogs;
   closeDatedInventory: typeof closeDatedInventory;
   dailyChecklists: typeof dailyChecklists;
   dashboardCache: typeof dashboardCache;
   dashboardQueries: typeof dashboardQueries;
-  diagnosticQueries: typeof diagnosticQueries;
-  diagnostics: typeof diagnostics;
   dlChecklists: typeof dlChecklists;
-  fixDataStructure: typeof fixDataStructure;
   http: typeof http;
   inventory: typeof inventory;
   inventoryMutations: typeof inventoryMutations;
@@ -104,18 +90,14 @@ declare const fullApi: ApiFromModules<{
   subscriptionHelpers: typeof subscriptionHelpers;
   subscriptions: typeof subscriptions;
   tabletCounts: typeof tabletCounts;
-  testSalesData: typeof testSalesData;
   ticketHistoryEnhanced: typeof ticketHistoryEnhanced;
   ticketMutations: typeof ticketMutations;
   ticketParserFixed: typeof ticketParserFixed;
   ticketStats: typeof ticketStats;
-  ticketValidation: typeof ticketValidation;
-  updateFranchiseIds: typeof updateFranchiseIds;
   users: typeof users;
   "utils/dataAggregation": typeof utils_dataAggregation;
   "utils/inventoryOptimization": typeof utils_inventoryOptimization;
   "utils/pagination": typeof utils_pagination;
-  verifyFixedStructure: typeof verifyFixedStructure;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 

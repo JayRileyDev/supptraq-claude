@@ -135,12 +135,31 @@ export const getInventoryFilters = query({
     // Get unique vendors from inventory_uploads
     const vendorCodes = [...new Set(uploads.map(upload => upload.primary_vendor))];
     
-    // Format uploads with labels
-    const formattedUploads = uploads.map(upload => ({
-      id: upload._id,
-      vendor: upload.primary_vendor,
-      label: `${upload.primary_vendor} – ${upload.window_start} to ${upload.window_end}`
-    }));
+    // Format uploads with labels (shorter date format)
+    const formattedUploads = uploads.map(upload => {
+      // Convert date strings to shorter format (e.g., "2024-01-15" -> "Jan 15")
+      const formatShortDate = (dateStr: string) => {
+        try {
+          const date = new Date(dateStr);
+          return date.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric'
+          });
+        } catch {
+          // If date parsing fails, just return the original string
+          return dateStr;
+        }
+      };
+
+      const startDate = formatShortDate(upload.window_start);
+      const endDate = formatShortDate(upload.window_end);
+      
+      return {
+        id: upload._id,
+        vendor: upload.primary_vendor,
+        label: `${upload.primary_vendor} – ${startDate} to ${endDate}`
+      };
+    });
 
     return {
       stores,
@@ -496,5 +515,122 @@ export const getUploadOverview = query({
       transfersOutCount,
       topSoldItems
     };
+  },
+});
+
+export const getTransferLogsForManagement = query({
+  args: { 
+    uploadId: v.string(),
+    storeId: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
+    
+    let query = ctx.db
+      .query("transfer_logs")
+      .filter((q) => q.eq(q.field("franchiseId"), userContext.franchiseId))
+      .filter((q) => q.eq(q.field("upload_id"), args.uploadId));
+    
+    const transferLogs = await query.take(5000);
+    
+    // Filter by store if specified (check both from_store_id and to_store_id)
+    const relevantTransfers = args.storeId 
+      ? transferLogs.filter(log => 
+          log.from_store_id === args.storeId || log.to_store_id === args.storeId
+        )
+      : transferLogs;
+    
+    return relevantTransfers;
+  },
+});
+
+export const getAvailableItemsForUpload = query({
+  args: { 
+    uploadId: v.string(),
+    searchTerm: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    const userContext = await getUserContext(ctx.auth, ctx.db);
+    
+    // Get inventory lines for this upload
+    let inventoryQuery = ctx.db
+      .query("inventory_lines")
+      .filter((q) => q.eq(q.field("franchiseId"), userContext.franchiseId))
+      .filter((q) => q.eq(q.field("upload_id"), args.uploadId));
+    
+    const inventoryLines = await inventoryQuery.take(5000);
+    
+    // Get SKU vendor map for product name lookup and vendor info
+    const skuVendorMap = await ctx.db
+      .query("sku_vendor_map")
+      .filter((q) => q.eq(q.field("orgId"), userContext.orgId))
+      .take(5000);
+    const skuMap = new Map(skuVendorMap.map(item => [item.item_number, {
+      description: item.description || '',
+      primary_vendor: item.vendor || ''
+    }]));
+    
+    // Get unique items with their best product names and vendors
+    const itemsMap = new Map();
+    
+    inventoryLines.forEach(line => {
+      if (!itemsMap.has(line.item_number)) {
+        // Determine the best product name and vendor
+        let productName = line.product_name;
+        let primaryVendor = line.primary_vendor;
+        
+        // Try to get better info from SKU vendor map
+        const skuInfo = skuMap.get(line.item_number);
+        if (skuInfo) {
+          if (!productName || !productName.trim()) {
+            productName = skuInfo.description;
+          }
+          if (!primaryVendor || !primaryVendor.trim()) {
+            primaryVendor = skuInfo.primary_vendor;
+          }
+        }
+        
+        // Fallback to item number if still no product name
+        if (!productName || !productName.trim()) {
+          productName = `Item ${line.item_number}`;
+        }
+        
+        itemsMap.set(line.item_number, {
+          item_number: line.item_number,
+          product_name: productName,
+          primary_vendor: primaryVendor || 'Unknown'
+        });
+      }
+    });
+    
+    let items = Array.from(itemsMap.values());
+    
+    // Filter by search term if provided
+    if (args.searchTerm && args.searchTerm.trim()) {
+      const searchLower = args.searchTerm.toLowerCase().trim();
+      items = items.filter(item => 
+        item.product_name.toLowerCase().includes(searchLower) ||
+        item.item_number.toLowerCase().includes(searchLower) ||
+        item.primary_vendor.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Sort by product name (prioritizing product name matches) and limit results
+    return items
+      .sort((a, b) => {
+        // If there's a search term, prioritize product name matches
+        if (args.searchTerm && args.searchTerm.trim()) {
+          const searchLower = args.searchTerm.toLowerCase().trim();
+          const aProductMatch = a.product_name.toLowerCase().includes(searchLower);
+          const bProductMatch = b.product_name.toLowerCase().includes(searchLower);
+          
+          if (aProductMatch && !bProductMatch) return -1;
+          if (!aProductMatch && bProductMatch) return 1;
+        }
+        
+        // Then sort by product name alphabetically
+        return a.product_name.localeCompare(b.product_name);
+      })
+      .slice(0, 50); // Limit to 50 results for performance
   },
 });

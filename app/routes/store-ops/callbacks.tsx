@@ -9,6 +9,7 @@ import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
 import { Badge } from "~/components/ui/badge";
 import { Checkbox } from "~/components/ui/checkbox";
+import { Progress } from "~/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -31,32 +32,96 @@ import {
   Trash2,
   Calendar,
   AlertCircle,
-  CheckCircle,
+  CheckCircle2,
   XCircle,
   Clock,
   Voicemail,
   PhoneMissed,
   TruckIcon,
-  Star
+  Star,
+  Search,
+  MoreHorizontal,
+  ExternalLink,
+  Users,
+  TrendingUp,
+  Target
 } from "lucide-react";
 import { cn } from "~/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 type CallbackStatus = "pending" | "no_answer" | "voicemail" | "contacted" | "in_transfer" | "important" | "completed";
 
-const STATUS_CONFIG: Record<CallbackStatus, { label: string; color: string; icon: any }> = {
-  pending: { label: "Pending", color: "bg-gray-100 text-gray-800", icon: Clock },
-  no_answer: { label: "No Answer", color: "bg-yellow-100 text-yellow-800", icon: PhoneMissed },
-  voicemail: { label: "Voicemail", color: "bg-orange-100 text-orange-800", icon: Voicemail },
-  contacted: { label: "Contacted", color: "bg-blue-100 text-blue-800", icon: Phone },
-  in_transfer: { label: "In Transfer", color: "bg-purple-100 text-purple-800", icon: TruckIcon },
-  important: { label: "Important", color: "bg-red-100 text-red-800", icon: Star },
-  completed: { label: "Completed", color: "bg-green-100 text-green-800", icon: CheckCircle },
+const STATUS_CONFIG: Record<CallbackStatus, { 
+  label: string; 
+  color: string; 
+  icon: any;
+  bgClass: string;
+  textClass: string;
+  borderClass: string;
+}> = {
+  pending: { 
+    label: "Pending", 
+    color: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300", 
+    icon: Clock,
+    bgClass: "bg-gray-500/10 dark:bg-gray-500/20",
+    textClass: "text-gray-600 dark:text-gray-400",
+    borderClass: "border-gray-200 dark:border-gray-800"
+  },
+  no_answer: { 
+    label: "No Answer", 
+    color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300", 
+    icon: PhoneMissed,
+    bgClass: "bg-amber-500/10 dark:bg-amber-500/20",
+    textClass: "text-amber-600 dark:text-amber-400",
+    borderClass: "border-amber-200 dark:border-amber-800"
+  },
+  voicemail: { 
+    label: "Voicemail", 
+    color: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300", 
+    icon: Voicemail,
+    bgClass: "bg-orange-500/10 dark:bg-orange-500/20",
+    textClass: "text-orange-600 dark:text-orange-400",
+    borderClass: "border-orange-200 dark:border-orange-800"
+  },
+  contacted: { 
+    label: "Contacted", 
+    color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300", 
+    icon: Phone,
+    bgClass: "bg-blue-500/10 dark:bg-blue-500/20",
+    textClass: "text-blue-600 dark:text-blue-400",
+    borderClass: "border-blue-200 dark:border-blue-800"
+  },
+  in_transfer: { 
+    label: "In Transfer", 
+    color: "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300", 
+    icon: TruckIcon,
+    bgClass: "bg-violet-500/10 dark:bg-violet-500/20",
+    textClass: "text-violet-600 dark:text-violet-400",
+    borderClass: "border-violet-200 dark:border-violet-800"
+  },
+  important: { 
+    label: "Important", 
+    color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300", 
+    icon: Star,
+    bgClass: "bg-red-500/10 dark:bg-red-500/20",
+    textClass: "text-red-600 dark:text-red-400",
+    borderClass: "border-red-200 dark:border-red-800"
+  },
+  completed: { 
+    label: "Completed", 
+    color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300", 
+    icon: CheckCircle2,
+    bgClass: "bg-emerald-500/10 dark:bg-emerald-500/20",
+    textClass: "text-emerald-600 dark:text-emerald-400",
+    borderClass: "border-emerald-200 dark:border-emerald-800"
+  },
 };
 
 export default function CallbackList() {
   const [statusFilter, setStatusFilter] = useState<CallbackStatus | "all">("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingCallback, setEditingCallback] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   
   const callbacks = useQuery(api.callbacks.listCallbacks, 
     statusFilter === "all" ? {} : { status: statusFilter }
@@ -175,209 +240,376 @@ export default function CallbackList() {
     return phone;
   };
 
+  const filteredCallbacks = callbacks?.filter(callback => {
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      return (
+        callback.customer_name.toLowerCase().includes(query) ||
+        callback.item_requested.toLowerCase().includes(query) ||
+        callback.customer_phone.includes(query) ||
+        callback.flavor?.toLowerCase().includes(query) ||
+        callback.comments?.toLowerCase().includes(query)
+      );
+    }
+    return true;
+  });
+
+  const getOverallProgress = () => {
+    if (!stats) return 0;
+    const total = Object.values(stats).reduce((sum, count) => sum + count, 0) - (stats.overdue || 0);
+    const completed = stats.completed || 0;
+    return total > 0 ? Math.round((completed / total) * 100) : 0;
+  };
+
   return (
-    <div className="p-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Callback List</h1>
-          <p className="mt-2 text-gray-600">
-            Track customer follow-ups and product requests
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold text-foreground">Customer Callbacks</h1>
+          <p className="text-muted-foreground">
+            Track and manage customer follow-ups and product requests
           </p>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Callback
-        </Button>
+        <div className="flex items-center gap-3">
+          <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+            <Phone className="w-3 h-3 mr-1" />
+            {filteredCallbacks?.length || 0} Active
+          </Badge>
+          <Button onClick={() => setIsCreateOpen(true)} size="sm">
+            <Plus className="mr-2 h-4 w-4" />
+            New Callback
+          </Button>
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      {stats && (
-        <div className="mb-6 grid gap-4 md:grid-cols-4 lg:grid-cols-8">
-          <Card className={cn(
-            "cursor-pointer hover:shadow-lg transition-shadow",
-            stats.overdue > 0 && "ring-2 ring-red-500"
-          )}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500">Overdue</p>
-                  <p className="text-xl font-bold text-red-600">{stats.overdue}</p>
-                </div>
-                <AlertCircle className="h-6 w-6 text-red-600" />
+      {/* Stats Overview */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Completion Rate</p>
+                <p className="text-2xl font-bold text-foreground">{getOverallProgress()}%</p>
+                <p className="text-xs text-muted-foreground">Overall progress</p>
               </div>
-            </CardContent>
-          </Card>
+              <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <TrendingUp className="h-6 w-6" />
+              </div>
+            </div>
+            <Progress value={getOverallProgress()} className="mt-3 h-2" />
+          </CardContent>
+        </Card>
 
-          {Object.entries(STATUS_CONFIG).map(([status, config]) => (
-            <Card key={status} className="cursor-pointer hover:shadow-lg transition-shadow"
-                  onClick={() => setStatusFilter(status as CallbackStatus)}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-gray-500">{config.label}</p>
-                    <p className="text-xl font-bold">{stats[status as keyof typeof stats]}</p>
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Pending</p>
+                <p className="text-2xl font-bold text-foreground">{stats?.pending || 0}</p>
+                <p className="text-xs text-muted-foreground">Need attention</p>
+              </div>
+              <div className="p-3 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                <Clock className="h-6 w-6" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Contacted</p>
+                <p className="text-2xl font-bold text-foreground">{stats?.contacted || 0}</p>
+                <p className="text-xs text-muted-foreground">In progress</p>
+              </div>
+              <div className="p-3 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                <Phone className="h-6 w-6" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Completed</p>
+                <p className="text-2xl font-bold text-foreground">{stats?.completed || 0}</p>
+                <p className="text-xs text-muted-foreground">Finished</p>
+              </div>
+              <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Stats Grid */}
+      {stats && (
+        <Card className="border-0 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-primary" />
+              Status Breakdown
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-7">
+              {stats.overdue > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="p-4 rounded-lg border-2 border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20 cursor-pointer hover:shadow-md transition-all"
+                  onClick={() => setStatusFilter("all")}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-red-600 dark:text-red-400">Overdue</p>
+                      <p className="text-lg font-bold text-red-700 dark:text-red-300">{stats.overdue}</p>
+                    </div>
+                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
                   </div>
-                  <config.icon className={cn("h-6 w-6", config.color.replace("bg-", "text-").replace("100", "600"))} />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </motion.div>
+              )}
+
+              {Object.entries(STATUS_CONFIG).map(([status, config], index) => (
+                <motion.div
+                  key={status}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className={cn(
+                    "p-4 rounded-lg border cursor-pointer hover:shadow-md transition-all group",
+                    config.borderClass,
+                    config.bgClass
+                  )}
+                  onClick={() => setStatusFilter(status as CallbackStatus)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className={cn("text-xs font-medium", config.textClass)}>{config.label}</p>
+                      <p className={cn("text-lg font-bold", config.textClass)}>
+                        {stats[status as keyof typeof stats] || 0}
+                      </p>
+                    </div>
+                    <config.icon className={cn("h-5 w-5 group-hover:scale-110 transition-transform", config.textClass)} />
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Filter Bar */}
-      <div className="mb-6 flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-gray-500" />
-          <span className="text-sm font-medium">Filter by status:</span>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant={statusFilter === "all" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setStatusFilter("all")}
-          >
-            All
-          </Button>
-          {Object.entries(STATUS_CONFIG).map(([status, config]) => (
-            <Button
-              key={status}
-              variant={statusFilter === status ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter(status as CallbackStatus)}
-            >
-              {config.label}
-            </Button>
-          ))}
-        </div>
-      </div>
+      {/* Search and Filters */}
+      <Card className="border-0 shadow-sm">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4 items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Search customers, items, phone numbers..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant={statusFilter === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter("all")}
+                >
+                  All
+                </Button>
+                {Object.entries(STATUS_CONFIG).map(([status, config]) => (
+                  <Button
+                    key={status}
+                    variant={statusFilter === status ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setStatusFilter(status as CallbackStatus)}
+                    className="text-xs"
+                  >
+                    {config.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Callbacks List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Callbacks</CardTitle>
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            Callback List
+          </CardTitle>
+          <Badge variant="outline" className="text-xs">
+            {filteredCallbacks?.length || 0} {statusFilter !== "all" ? `${STATUS_CONFIG[statusFilter]?.label}` : "callbacks"}
+          </Badge>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="p-2 text-left">Date</th>
-                  <th className="p-2 text-left">Item</th>
-                  <th className="p-2 text-left">Customer</th>
-                  <th className="p-2 text-left">Details</th>
-                  <th className="p-2 text-left">Status</th>
-                  <th className="p-2 text-left">Actions</th>
-                  <th className="p-2"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {callbacks?.map((callback) => (
-                  <tr key={callback._id} className={cn(
-                    "border-b hover:bg-gray-50",
-                    callback.status === "important" && "bg-red-50"
-                  )}>
-                    <td className="p-2">
-                      <div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3 text-gray-400" />
-                          <span className="text-sm font-medium">{callback.date_requested}</span>
+          <div className="space-y-3">
+            <AnimatePresence mode="popLayout">
+              {filteredCallbacks?.map((callback, index) => {
+                const config = STATUS_CONFIG[callback.status];
+                return (
+                  <motion.div
+                    key={callback._id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ delay: index * 0.05 }}
+                    className={cn(
+                      "p-4 rounded-lg border transition-all hover:shadow-md group",
+                      callback.status === "important" && "ring-2 ring-red-200 dark:ring-red-800",
+                      callback.status === "overdue" && "bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+                        {/* Customer Info */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <div className={cn("p-2 rounded-lg", config.bgClass)}>
+                              <config.icon className={cn("h-4 w-4", config.textClass)} />
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground">{callback.customer_name}</p>
+                              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                {formatPhoneNumber(callback.customer_phone)}
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                        {callback.call_date && (
-                          <p className="text-xs text-gray-500">
-                            Called: {callback.call_date} by {callback.called_by}
-                          </p>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-2">
-                      <div>
-                        <p className="text-sm font-medium">{callback.item_requested}</p>
-                        <div className="text-xs text-gray-500">
-                          {callback.flavor && `${callback.flavor} • `}
-                          {callback.size_servings && `${callback.size_servings} • `}
-                          {callback.quantity && `Qty: ${callback.quantity}`}
+
+                        {/* Product Info */}
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-foreground">{callback.item_requested}</p>
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            {callback.flavor && <p>Flavor: {callback.flavor}</p>}
+                            {callback.size_servings && <p>Size: {callback.size_servings}</p>}
+                            {callback.quantity && <p>Qty: {callback.quantity}</p>}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="p-2">
-                      <div>
-                        <p className="text-sm font-medium">{callback.customer_name}</p>
-                        <p className="text-xs text-gray-500 flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {formatPhoneNumber(callback.customer_phone)}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="p-2">
-                      <div className="flex flex-col gap-1">
-                        {callback.prepaid && (
-                          <Badge variant="secondary" className="text-xs">Prepaid</Badge>
-                        )}
-                        {callback.transfer_location && (
-                          <Badge variant="outline" className="text-xs">
-                            Transfer: {callback.transfer_location}
+
+                        {/* Status & Date */}
+                        <div className="space-y-2">
+                          <Badge className={config.color} size="sm">
+                            {config.label}
                           </Badge>
-                        )}
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <p className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {callback.date_requested}
+                            </p>
+                            {callback.call_date && (
+                              <p>Called: {callback.call_date}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Additional Details */}
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-2">
+                            {callback.prepaid && (
+                              <Badge variant="secondary" size="sm">Prepaid</Badge>
+                            )}
+                            {callback.transfer_location && (
+                              <Badge variant="outline" size="sm">
+                                Transfer: {callback.transfer_location}
+                              </Badge>
+                            )}
+                          </div>
+                          {callback.comments && (
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {callback.comments}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </td>
-                    <td className="p-2">
-                      <Badge className={STATUS_CONFIG[callback.status].color}>
-                        {STATUS_CONFIG[callback.status].label}
-                      </Badge>
-                    </td>
-                    <td className="p-2">
-                      <div className="flex gap-1">
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2 text-xs"
                           onClick={() => handleQuickStatusUpdate(callback._id, "contacted")}
                           disabled={callback.status === "contacted" || callback.status === "completed"}
+                          className="h-8"
                         >
                           <Phone className="h-3 w-3 mr-1" />
-                          Called
+                          Call
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2 text-xs"
                           onClick={() => handleQuickStatusUpdate(callback._id, "no_answer")}
                           disabled={callback.status === "completed"}
+                          className="h-8"
                         >
                           <XCircle className="h-3 w-3" />
                         </Button>
-                      </div>
-                    </td>
-                    <td className="p-2">
-                      <div className="flex gap-1">
                         <Button
                           variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
+                          size="sm"
                           onClick={() => openEditDialog(callback)}
+                          className="h-8 w-8 p-0"
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
+                          size="sm"
                           onClick={() => handleDelete(callback._id)}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
             
-            {callbacks?.length === 0 && (
-              <div className="py-12 text-center text-gray-500">
-                No callbacks found {statusFilter !== "all" && `with status "${STATUS_CONFIG[statusFilter].label}"`}
-              </div>
+            {filteredCallbacks?.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="py-12 text-center"
+              >
+                <div className="space-y-3">
+                  <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                    <Phone className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-medium text-foreground">No callbacks found</p>
+                    <p className="text-muted-foreground">
+                      {statusFilter !== "all" 
+                        ? `No callbacks with status "${STATUS_CONFIG[statusFilter]?.label}"`
+                        : searchQuery 
+                          ? "Try adjusting your search terms"
+                          : "Create your first callback to get started"
+                      }
+                    </p>
+                  </div>
+                  {statusFilter === "all" && !searchQuery && (
+                    <Button onClick={() => setIsCreateOpen(true)} variant="outline">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create First Callback
+                    </Button>
+                  )}
+                </div>
+              </motion.div>
             )}
           </div>
         </CardContent>

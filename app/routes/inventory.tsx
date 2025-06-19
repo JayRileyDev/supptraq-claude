@@ -14,6 +14,40 @@ import { cn } from "~/lib/utils";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { PageAccessGuard } from "~/components/access/PageAccessGuard";
+import { TransferLogManager } from "~/components/dashboard/TransferLogManager";
+import { isBoxQtyItem } from "../../convex/sku_vendor_map";
+
+// Helper functions for box qty formatting
+const formatBoxQtyForDisplay = (itemNumber: string, quantity: number): string => {
+  if (!isBoxQtyItem(itemNumber) || quantity === 0) {
+    return quantity.toString();
+  }
+  
+  const boxes = Math.floor(quantity / 12);
+  const remainder = quantity % 12;
+  
+  if (remainder === 0) {
+    return boxes === 1 ? "1 box" : `${boxes} boxes`;
+  } else {
+    const boxPart = boxes > 0 ? (boxes === 1 ? "1 box" : `${boxes} boxes`) : "";
+    const unitPart = `${remainder} units`;
+    return boxes > 0 ? `${boxPart} + ${unitPart}` : unitPart;
+  }
+};
+
+const formatTransferQtyForDisplay = (itemNumber: string, quantity: number): string => {
+  if (!isBoxQtyItem(itemNumber) || quantity === 0) {
+    return quantity.toString();
+  }
+  
+  const boxes = Math.floor(quantity / 12);
+  if (boxes > 0 && quantity % 12 === 0) {
+    return boxes === 1 ? "1 box" : `${boxes} boxes`;
+  }
+  
+  // For transfers, we should only show complete boxes, but fallback to units if needed
+  return quantity.toString();
+};
 
 function InventoryPageContent() {
   const [filters, setFilters] = useState({
@@ -162,26 +196,8 @@ function InventoryPageContent() {
           </td>
           <td className="py-3 px-4 text-center text-sm">{line.qty_sold}</td>
           <td className="py-3 px-4 text-center text-sm">{line.qty_on_hand}</td>
-          <td className="py-3 px-4">
-            <Input
-              type="number"
-              min="0"
-              value={edits.transfer_in_qty ?? line.transfer_in_qty}
-              onChange={(e) => handleQuantityUpdate(line._id, "transfer_in_qty", e.target.value)}
-              onBlur={() => Object.keys(editedLines.get(line._id) || {}).length > 0 && saveChanges(line._id)}
-              className="w-20 mx-auto text-center"
-            />
-          </td>
-          <td className="py-3 px-4">
-            <Input
-              type="number"
-              min="0"
-              value={edits.transfer_out_qty ?? line.transfer_out_qty}
-              onChange={(e) => handleQuantityUpdate(line._id, "transfer_out_qty", e.target.value)}
-              onBlur={() => Object.keys(editedLines.get(line._id) || {}).length > 0 && saveChanges(line._id)}
-              className="w-20 mx-auto text-center"
-            />
-          </td>
+          <td className="py-3 px-4 text-center text-sm">{edits.transfer_in_qty ?? line.transfer_in_qty}</td>
+          <td className="py-3 px-4 text-center text-sm">{edits.transfer_out_qty ?? line.transfer_out_qty}</td>
           <td className="py-3 px-4">
             <Input
               type="number"
@@ -345,13 +361,13 @@ function InventoryPageContent() {
   }, [deleteInventoryLinesBatch, deleteTransferLogsBatch, deleteUploadRecord, reportUploadId, filters.uploadId]);
 
   // Generate PDF Report
-  // Add transfer logs query - commented out for now since this query needs to be updated
-  // const transferLogsData = useQuery(
-  //   api.inventoryQueries.getTransferLogsForReport,
-  //   reportUploadId && reportStore
-  //     ? { uploadId: reportUploadId, storeId: reportStore }
-  //     : "skip"
-  // );
+  // Get transfer logs data for proper store locations
+  const transferLogsData = useQuery(
+    api.inventoryQueries.getTransferLogsForReport,
+    reportUploadId && reportStore
+      ? { uploadId: reportUploadId, storeId: reportStore }
+      : "skip"
+  );
 
   const generateReport = useCallback(async () => {
     try {
@@ -497,8 +513,8 @@ function InventoryPageContent() {
           item.product_name,
           item.qty_sold.toString(),
           item.qty_on_hand.toString(),
-          item.transfer_in_qty.toString(),
-          item.suggested_reorder_qty.toString()
+          formatTransferQtyForDisplay(item.item_number, item.transfer_in_qty),
+          formatBoxQtyForDisplay(item.item_number, item.suggested_reorder_qty)
         ]);
 
       if (orderingData.length > 0) {
@@ -580,43 +596,43 @@ function InventoryPageContent() {
         });
       });
       
-      // Process transfer logs to create individual lines - commented out since transferLogsData is not available
-      // if (transferLogsData) {
-      //   transferLogsData.forEach(log => {
-      //     const itemData = itemDataMap.get(log.item_number);
-      //     if (itemData) {
-      //       // Create a line for each transfer in
-      //       log.transfers_in.forEach((transfer: any) => {
-      //         transferLines.push({
-      //           item_number: log.item_number,
-      //           product_name: log.product_name,
-      //           qty_sold: itemData.qty_sold,
-      //           qty_on_hand: itemData.qty_on_hand,
-      //           transfer_type: 'IN',
-      //           transfer_qty: transfer.qty,
-      //           from_store: transfer.from_store,
-      //           to_store: reportStore
-      //         });
-      //       });
-      //       
-      //       // Create a line for each transfer out
-      //       log.transfers_out.forEach((transfer: any) => {
-      //         transferLines.push({
-      //           item_number: log.item_number,
-      //           product_name: log.product_name,
-      //           qty_sold: itemData.qty_sold,
-      //           qty_on_hand: itemData.qty_on_hand,
-      //           transfer_type: 'OUT',
-      //           transfer_qty: transfer.qty,
-      //           from_store: reportStore,
-      //           to_store: transfer.to_store
-      //         });
-      //       });
-      //     }
-      //   });
-      // }
+      // Process transfer logs to create individual lines
+      if (transferLogsData && Array.isArray(transferLogsData)) {
+        transferLogsData.forEach(log => {
+          const itemData = itemDataMap.get(log.item_number);
+          if (itemData) {
+            // Create a line for each transfer in
+            log.transfers_in.forEach((transfer: any) => {
+              transferLines.push({
+                item_number: log.item_number,
+                product_name: log.product_name,
+                qty_sold: itemData.qty_sold,
+                qty_on_hand: itemData.qty_on_hand,
+                transfer_type: 'IN',
+                transfer_qty: transfer.qty,
+                from_store: transfer.from_store,
+                to_store: reportStore
+              });
+            });
+            
+            // Create a line for each transfer out
+            log.transfers_out.forEach((transfer: any) => {
+              transferLines.push({
+                item_number: log.item_number,
+                product_name: log.product_name,
+                qty_sold: itemData.qty_sold,
+                qty_on_hand: itemData.qty_on_hand,
+                transfer_type: 'OUT',
+                transfer_qty: transfer.qty,
+                from_store: reportStore,
+                to_store: transfer.to_store
+              });
+            });
+          }
+        });
+      }
       
-      // If no transfer logs data, fall back to showing items with transfers (without store details)
+      // If no transfer logs data, fall back to showing items with transfers (with pending locations)
       if (transferLines.length === 0) {
         reportData
           .filter(item => item.transfer_in_qty > 0 || item.transfer_out_qty > 0)
@@ -629,7 +645,7 @@ function InventoryPageContent() {
                 qty_on_hand: item.qty_on_hand,
                 transfer_type: 'IN',
                 transfer_qty: item.transfer_in_qty,
-                from_store: 'TBD',
+                from_store: 'Pending Assignment',
                 to_store: reportStore
               });
             }
@@ -642,7 +658,7 @@ function InventoryPageContent() {
                 transfer_type: 'OUT',
                 transfer_qty: item.transfer_out_qty,
                 from_store: reportStore,
-                to_store: 'TBD'
+                to_store: 'Pending Assignment'
               });
             }
           });
@@ -663,7 +679,7 @@ function InventoryPageContent() {
         line.qty_sold.toString(),
         line.qty_on_hand.toString(),
         line.transfer_type,
-        line.transfer_qty.toString(),
+        formatTransferQtyForDisplay(line.item_number, line.transfer_qty),
         line.from_store,
         line.to_store
       ]);
@@ -776,7 +792,7 @@ function InventoryPageContent() {
       alert("Failed to generate PDF. Please check console for details.");
       setIsGeneratingPDF(false);
     }
-  }, [reportStore, inventoryData, reportUploadId, editedLines, removedLines]);
+  }, [reportStore, inventoryData, reportUploadId, editedLines, removedLines, transferLogsData]);
 
   return (
     <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 min-h-screen bg-gradient-to-br from-background via-background to-background/50">
@@ -1134,6 +1150,26 @@ function InventoryPageContent() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Transfer Log Management Panel */}
+      {reportUploadId && reportStore && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.5 }}
+          className="mt-6"
+        >
+          <TransferLogManager 
+            uploadId={reportUploadId}
+            storeId={reportStore}
+            onTransferLogsChange={() => {
+              // Clear edited lines to force a refresh of inventory data
+              setEditedLines(new Map());
+              setRemovedLines(new Set());
+            }}
+          />
+        </motion.div>
+      )}
 
       {/* Deletion Progress Dialog */}
       <Dialog open={deletionProgress.showProgress} onOpenChange={() => {}}>

@@ -59,12 +59,31 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function loader(args: Route.LoaderArgs) {
-  const { userId } = await getAuth(args);
+  const { userId, getToken } = await getAuth(args);
 
-  // If user is signed in, redirect to dashboard immediately
-  // This avoids expensive subscription checks on the home page
+  // If user is signed in, check if they are store ops user and redirect appropriately
   if (userId) {
-    throw redirect("/dashboard");
+    const convex = new ConvexHttpClient(process.env.VITE_CONVEX_URL!);
+    
+    // Set auth token for server-side queries
+    const token = await getToken({ template: "convex" });
+    if (token) {
+      convex.setAuth(token);
+    }
+
+    try {
+      // Get user to check if they are store ops
+      const user = await convex.query(api.users.getCurrentUser);
+      
+      if (user?.isStoreOps) {
+        throw redirect("/store-ops");
+      } else {
+        throw redirect("/dashboard");
+      }
+    } catch (error) {
+      // If there's an error getting user info, default to dashboard
+      throw redirect("/dashboard");
+    }
   }
 
   const convex = new ConvexHttpClient(process.env.VITE_CONVEX_URL!);

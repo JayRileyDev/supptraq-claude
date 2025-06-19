@@ -43,37 +43,53 @@ You are trained on the following schema:
 
 export const chat = httpAction(async (ctx, req) => {
   try {
-    console.log("Chat endpoint called");
-    
     // Extract the `messages` and `authToken` from the body of the request
     const { messages, authToken } = await req.json();
-    console.log("Messages received:", messages.length);
-    console.log("Auth token provided:", authToken ? "yes" : "no");
+    
+    // Production-safe logging
+    const isDev = process.env.NODE_ENV === 'development';
+    if (isDev) {
+      console.log("Chat endpoint called");
+      console.log("Messages received:", messages.length);
+      console.log("Auth token provided:", authToken ? "yes" : "no");
+    }
     
     // Get the user's latest message to understand what they're asking
     const latestUserMessage = messages.filter((m: any) => m.role === "user").pop();
     const userQuery = latestUserMessage?.content || "";
-    console.log("User query:", userQuery);
+    
+    if (isDev) {
+      console.log("User query:", userQuery);
+    }
     
     // Check if OpenAI API key is available
     if (!process.env.OPENAI_API_KEY) {
       console.error("OPENAI_API_KEY not found in environment");
       throw new Error("OpenAI API key not configured");
     }
-    console.log("OpenAI API key found");
+    
+    if (isDev) {
+      console.log("OpenAI API key found");
+    }
     
     // Let the AI query the database directly through HTTP actions
     let businessContext = null;
     
     try {
-      // Use a simple HTTP action that can query the database
-      businessContext = await ctx.runAction(api.businessQueries.getBusinessDataForAI, {
+      // For now, provide a basic business context
+      // TODO: Implement proper business data fetching when needed
+      businessContext = {
         query: userQuery,
-        dateRange: 7,
-      });
-      console.log("Business context fetched via action");
+        timestamp: new Date().toISOString(),
+        note: "Business data integration temporarily disabled during cleanup",
+      };
+      if (isDev) {
+        console.log("Basic business context provided");
+      }
     } catch (error) {
-      console.error("Failed to fetch business context:", error);
+      if (isDev) {
+        console.error("Failed to create business context:", error);
+      }
       // Provide helpful context about the system capabilities
       businessContext = {
         query: userQuery,
@@ -235,14 +251,14 @@ http.route({
 const createCompleteUser = httpAction(async (ctx, request) => {
   try {
     const body = await request.json();
-    const { email, username, password, name, storeId, storeUsername, storeName, orgId, franchiseId, createNewFranchise, role, isStoreOps, allowedPages } = body;
+    const { email, username, password, name, storeId, orgId, franchiseId, createNewFranchise, role, isStoreOps, allowedPages } = body;
 
     // Validate required fields based on portal type
     if (isStoreOps) {
-      if (!email || !storeUsername || !password || !storeName || !storeId) {
+      if (!email || !username || !password || !name) {
         return new Response(JSON.stringify({ 
           error: "Missing required fields for Store Operations Portal",
-          required: ["email", "storeUsername", "password", "storeName", "storeId"]
+          required: ["email", "username", "password", "name"]
         }), {
           status: 400,
           headers: { 
@@ -325,16 +341,12 @@ const createCompleteUser = httpAction(async (ctx, request) => {
     // Step 1: Create user in Clerk
     let clerkUser;
     try {
-      // Use appropriate values based on portal type
-      const actualUsername = isStoreOps ? storeUsername : username;
-      const actualName = isStoreOps ? storeName : name;
-      
       clerkUser = await clerk.users.createUser({
         emailAddress: [email],
-        username: actualUsername,
+        username: username,
         password: password,
-        firstName: actualName.split(' ')[0] || actualName,
-        lastName: actualName.split(' ').slice(1).join(' ') || undefined,
+        firstName: name.split(' ')[0] || name,
+        lastName: name.split(' ').slice(1).join(' ') || undefined,
         skipPasswordChecks: true, // Allow simple passwords for admin-created accounts
         skipPasswordRequirement: false,
       });
@@ -360,7 +372,6 @@ const createCompleteUser = httpAction(async (ctx, request) => {
     // Step 2: Create user profile in Convex
     let result;
     try {
-      const actualName = isStoreOps ? storeName : name;
       const actualRole = isStoreOps ? "member" : role;
       const actualAllowedPages = isStoreOps ? ["/store-ops"] : (role === "member" ? allowedPages : undefined);
       
@@ -368,10 +379,11 @@ const createCompleteUser = httpAction(async (ctx, request) => {
         // Create user with new franchise (Owner Ops only)
         result = await ctx.runMutation(api.admin.createUserWithNewFranchise, {
           email,
-          name: actualName,
+          name,
           orgId,
           role: actualRole,
           isStoreOps: isStoreOps || false,
+          storeId: isStoreOps ? storeId : undefined,
           allowedPages: actualAllowedPages,
           clerkId: clerkUser.id, // Link to Clerk user
         });
@@ -379,10 +391,11 @@ const createCompleteUser = httpAction(async (ctx, request) => {
         // Add user to existing franchise (both Owner Ops members and Store Ops)
         result = await ctx.runMutation(api.admin.createUserWithExistingFranchise, {
           email,
-          name: actualName,
+          name,
           franchiseId,
           role: actualRole,
           isStoreOps: isStoreOps || false,
+          storeId: isStoreOps ? storeId : undefined,
           allowedPages: actualAllowedPages,
           clerkId: clerkUser.id, // Link to Clerk user
         });
@@ -402,10 +415,9 @@ const createCompleteUser = httpAction(async (ctx, request) => {
         convexUserId: result.userId,
         credentials: {
           email,
-          username: isStoreOps ? storeUsername : username,
-          password, // Return for admin to share with user
-          name: isStoreOps ? storeName : name,
-          storeId: isStoreOps ? storeId : undefined,
+          username,
+          // Password set successfully (not returned for security)
+          name,
           portalType: isStoreOps ? "Store Operations Portal" : "Owner Operations Portal"
         }
       }), {

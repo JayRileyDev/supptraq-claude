@@ -7,56 +7,62 @@ export default function PricingCTA() {
   const pricingTiers = [
     {
       name: "Starter",
-      price: "$49",
-      period: "per location/month",
+      price: "$299",
+      period: "per store/month",
       description: "Perfect for single-location franchises",
+      setupFee: "$3,499 setup",
       features: [
-        "Up to 1,000 inventory items",
-        "Monthly analysis reports",
-        "Basic reorder recommendations",
-        "Email support",
-        "CSV/PDF exports"
+        "Complete operational visibility",
+        "Sales & inventory analytics",
+        "Rep performance tracking",
+        "Automated reorder suggestions",
+        "White-glove onboarding",
+        "POS integration support"
       ],
-      buttonText: "Start Early Access",
+      buttonText: "Start Scaling with Supptraq",
       buttonVariant: "outline" as const,
-      popular: false
+      popular: false,
+      storeCount: "1 store"
     },
     {
-      name: "Professional",
-      price: "$89",
-      period: "per location/month", 
+      name: "Growth",
+      price: "$399",
+      period: "per store/month", 
       description: "Best for growing franchise operations",
+      setupFee: "$5,999 setup",
       features: [
-        "Up to 5,000 inventory items",
-        "Weekly analysis reports",
-        "Advanced AI recommendations",
-        "Sales performance tracking",
+        "Everything in Starter",
+        "Cross-store performance comparison",
+        "Advanced team coaching tools",
+        "Custom reporting templates",
         "Priority support",
-        "Custom report templates",
-        "Vendor budget management"
+        "Multi-location dashboard",
+        "Inventory transfer optimization"
       ],
-      buttonText: "Start Early Access",
+      buttonText: "Start Scaling with Supptraq",
       buttonVariant: "default" as const,
-      popular: true
+      popular: true,
+      storeCount: "2-5 stores"
     },
     {
-      name: "Enterprise",
-      price: "Custom",
-      period: "pricing available",
-      description: "For large franchise networks",
+      name: "Franchise",
+      price: "$299",
+      period: "per store/month",
+      description: "For established franchise networks",
+      setupFee: "$16,999 setup",
       features: [
-        "Unlimited inventory items",
-        "Real-time analytics",
-        "Custom AI model training",
-        "Multi-location dashboards",
-        "Dedicated account manager",
-        "API access",
-        "White-label options",
-        "Advanced integrations"
+        "Everything in Growth",
+        "Dedicated success manager",
+        "Custom workflow automation",
+        "Advanced API access",
+        "Regional performance analytics",
+        "Bulk data processing",
+        "Enterprise-grade security"
       ],
-      buttonText: "Contact Sales",
+      buttonText: "Start Scaling with Supptraq",
       buttonVariant: "outline" as const,
-      popular: false
+      popular: false,
+      storeCount: "10-19 stores"
     }
   ];
 
@@ -82,7 +88,7 @@ export default function PricingCTA() {
             viewport={{ once: true }}
             className="text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl mb-6"
           >
-            Start Optimizing{" "}
+            Replace Your Operations Manager{" "}
             <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
               Today
             </span>
@@ -94,7 +100,7 @@ export default function PricingCTA() {
             viewport={{ once: true }}
             className="text-xl text-white/80 max-w-3xl mx-auto"
           >
-            Choose the plan that fits your franchise operation. All plans include 14-day early access.
+            Why do hundreds of owners pay $299-$399 per store? Because it costs far more not to. One operations manager costs $120K/year — Supptraq gives you better insights at a fraction of the cost.
           </motion.p>
         </motion.div>
 
@@ -164,6 +170,8 @@ export default function PricingCTA() {
                       {tier.price}
                     </div>
                     <div className="text-white/60 text-sm">{tier.period}</div>
+                    <div className="text-white/50 text-xs mt-1">{tier.setupFee}</div>
+                    <div className="text-white/70 text-sm font-medium mt-2">{tier.storeCount}</div>
                   </motion.div>
                   
                   <motion.p
@@ -238,25 +246,55 @@ export default function PricingCTA() {
           ))}
         </div>
 
-        {/* Bottom guarantees */}
+        {/* ROI Positioning Blurb */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.8 }}
           viewport={{ once: true }}
+          className="text-center mb-16"
+        >
+          <div className="max-w-4xl mx-auto bg-white/5 backdrop-blur-sm rounded-3xl p-8 border border-white/10">
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.9 }}
+              viewport={{ once: true }}
+              className="text-white/90 text-lg leading-relaxed mb-6"
+            >
+              From Starter to Franchise, each plan gives owners and managers the tools they need to take back control, coach with clarity, and scale faster — <strong className="text-white">without adding headcount or building dashboards in Google Sheets</strong>.
+            </motion.p>
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 1.0 }}
+              viewport={{ once: true }}
+              className="text-blue-300 font-medium"
+            >
+              This is your operations layer — at a fraction of the cost of doing it the hard way.
+            </motion.p>
+          </div>
+        </motion.div>
+
+        {/* Bottom guarantees */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 1.1 }}
+          viewport={{ once: true }}
           className="text-center"
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {[
-              { title: "14-day early access", subtitle: "No credit card required" },
-              { title: "Cancel anytime", subtitle: "No long-term contracts" },
-              { title: "30-day money back", subtitle: "Risk-free guarantee" }
+              { title: "White-glove onboarding", subtitle: "Full setup handled by our team" },
+              { title: "POS integration", subtitle: "Works with your existing systems" },
+              { title: "Executive-level support", subtitle: "Strategic, not just technical" }
             ].map((guarantee, index) => (
               <motion.div
                 key={index}
                 initial={{ scale: 0.8, opacity: 0 }}
                 whileInView={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.5, delay: 0.9 + index * 0.1 }}
+                transition={{ duration: 0.5, delay: 1.2 + index * 0.1 }}
                 viewport={{ once: true }}
                 className="text-center"
               >
@@ -277,7 +315,7 @@ export default function PricingCTA() {
         >
           <div className="inline-flex items-center space-x-2 text-white/60 text-sm">
             <div className="w-12 h-px bg-gradient-to-r from-transparent to-white/30" />
-            <span>Ready to transform your franchise operations?</span>
+            <span>Ready to replace your operations manager?</span>
             <div className="w-12 h-px bg-gradient-to-l from-transparent to-white/30" />
           </div>
         </motion.div>

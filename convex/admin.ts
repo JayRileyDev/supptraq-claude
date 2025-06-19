@@ -21,6 +21,41 @@ export const getFranchisesByOrg = query({
   },
 });
 
+// Get available store IDs for a franchise (optimized with take)
+export const getStoreIdsByFranchise = query({
+  args: { franchiseId: v.id("franchises") },
+  handler: async (ctx, { franchiseId }) => {
+    const allStoreIds = new Set<string>();
+    
+    // Get a reasonable sample from ticket_history to find unique store IDs
+    // Most franchises have < 50 stores, so 2000 records should capture them all
+    const ticketSample = await ctx.db
+      .query("ticket_history")
+      .withIndex("by_franchise", (q) => q.eq("franchiseId", franchiseId))
+      .take(2000);
+    
+    ticketSample.forEach(t => allStoreIds.add(t.store_id));
+    
+    // If we don't have many stores yet, try inventory_lines
+    if (allStoreIds.size < 15) {
+      const inventorySample = await ctx.db
+        .query("inventory_lines")
+        .withIndex("by_franchise", (q) => q.eq("franchiseId", franchiseId))
+        .take(1500);
+      
+      inventorySample.forEach(i => allStoreIds.add(i.store_id));
+    }
+
+    // Convert to array and sort
+    const storeIds = Array.from(allStoreIds).sort();
+    
+    return storeIds.map(storeId => ({ 
+      store_id: storeId,
+      display_name: `Store ${storeId}` 
+    }));
+  },
+});
+
 // Get all franchises with organization and owner details
 export const getAllFranchises = query({
   handler: async (ctx) => {
@@ -291,6 +326,7 @@ export const createUserWithExistingFranchise = mutation({
     franchiseId: v.id("franchises"),
     role: v.union(v.literal("owner"), v.literal("member")),
     isStoreOps: v.optional(v.boolean()),
+    storeId: v.optional(v.string()),
     allowedPages: v.optional(v.array(v.string())),
     clerkId: v.optional(v.string()),
   },
@@ -322,6 +358,7 @@ export const createUserWithExistingFranchise = mutation({
       tokenIdentifier,
       orgId: franchise.orgId,
       franchiseId: args.franchiseId,
+      storeId: args.storeId,
       role: args.role,
       isStoreOps: args.isStoreOps || false,
       allowedPages: args.allowedPages || [],
@@ -344,6 +381,7 @@ export const createUserWithNewFranchise = mutation({
     orgId: v.id("organizations"),
     role: v.union(v.literal("owner"), v.literal("member")),
     isStoreOps: v.optional(v.boolean()),
+    storeId: v.optional(v.string()),
     allowedPages: v.optional(v.array(v.string())),
     clerkId: v.optional(v.string()),
   },
@@ -387,6 +425,7 @@ export const createUserWithNewFranchise = mutation({
       tokenIdentifier,
       orgId: args.orgId,
       franchiseId,
+      storeId: args.storeId,
       role: args.role,
       isStoreOps: args.isStoreOps || false,
       allowedPages: args.allowedPages,

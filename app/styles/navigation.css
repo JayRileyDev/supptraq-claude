@@ -1,0 +1,98 @@
+/* Navigation loading states and optimizations */
+
+/* Global navigation loading state */
+body.navigating {
+  cursor: progress;
+}
+
+body.navigating * {
+  pointer-events: none;
+}
+
+/* Smooth transitions for route changes */
+.route-transition-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.route-transition-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 200ms ease-out, transform 200ms ease-out;
+}
+
+.route-transition-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.route-transition-exit-active {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 150ms ease-in, transform 150ms ease-in;
+}
+
+/* Enhanced link styles for better UX */
+.nav-link {
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-link::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s;
+}
+
+.nav-link:hover::before {
+  left: 100%;
+}
+
+/* Prefetch hints for critical routes */
+link[rel="prefetch"] {
+  /* Ensure prefetch links don't affect layout */
+  display: none;
+}
+
+/* Loading state animations */
+@keyframes navigationPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.navigation-loading {
+  animation: navigationPulse 1.5s ease-in-out infinite;
+}
+
+/* Smooth page transitions */
+.page-transition {
+  transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+}
+
+.page-transition.loading {
+  opacity: 0.7;
+  transform: scale(0.98);
+}
+
+/* Enhanced focus states for keyboard navigation */
+.nav-link:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .route-transition-enter,
+  .route-transition-exit,
+  .page-transition,
+  .nav-link::before {
+    transition: none;
+    animation: none;
+  }
+}

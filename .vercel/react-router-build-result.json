@@ -13,12 +13,37 @@
       "routes/home": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/sign-in": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/sign-up": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/account-pending": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/user-not-found": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/dev-login": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/pricing": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/success": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/subscription-required": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/admin": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/admin.grant-me": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/admin/setup": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/admin/quick-access": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/dashboard/index": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/dashboard/chat": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/dashboard/settings": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0"
+      "routes/upload": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/sales": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/inventory": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/budget": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/settings": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/chat": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/store-ops/index": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/store-ops/operational": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/store-ops/averages": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/store-ops/daily-checklist": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/store-ops/sl-checklist": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/store-ops/dl-checklist": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/store-ops/returns": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/store-ops/callbacks": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/store-ops/close-dated": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/store-ops/tablet-counts": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/store-ops/cleaning": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/store-ops/budget": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/store-ops/notifications": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/store-ops/settings": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0"
     },
     "routes": {
       "root": {
@@ -54,6 +79,33 @@
           "runtime": "nodejs"
         }
       },
+      "routes/account-pending": {
+        "id": "routes/account-pending",
+        "parentId": "root",
+        "file": "app/routes/account-pending.tsx",
+        "path": "account-pending",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/user-not-found": {
+        "id": "routes/user-not-found",
+        "parentId": "root",
+        "file": "app/routes/user-not-found.tsx",
+        "path": "user-not-found",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/dev-login": {
+        "id": "routes/dev-login",
+        "parentId": "root",
+        "file": "app/routes/dev-login.tsx",
+        "path": "dev-login",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/pricing": {
         "id": "routes/pricing",
         "parentId": "root",
@@ -81,6 +133,42 @@
           "runtime": "nodejs"
         }
       },
+      "routes/admin": {
+        "id": "routes/admin",
+        "parentId": "root",
+        "file": "app/routes/admin.tsx",
+        "path": "admin",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/admin.grant-me": {
+        "id": "routes/admin.grant-me",
+        "parentId": "root",
+        "file": "app/routes/admin.grant-me.tsx",
+        "path": "admin/grant-me",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/admin/setup": {
+        "id": "routes/admin/setup",
+        "parentId": "root",
+        "file": "app/routes/admin/setup.tsx",
+        "path": "admin/setup",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/admin/quick-access": {
+        "id": "routes/admin/quick-access",
+        "parentId": "root",
+        "file": "app/routes/admin/quick-access.tsx",
+        "path": "admin/quick-access",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/dashboard/layout": {
         "id": "routes/dashboard/layout",
         "parentId": "root",
@@ -96,20 +184,188 @@
           "runtime": "nodejs"
         }
       },
-      "routes/dashboard/chat": {
-        "id": "routes/dashboard/chat",
+      "routes/upload": {
+        "id": "routes/upload",
         "parentId": "routes/dashboard/layout",
-        "file": "app/routes/dashboard/chat.tsx",
-        "path": "dashboard/chat",
+        "file": "app/routes/upload.tsx",
+        "path": "upload",
         "config": {
           "runtime": "nodejs"
         }
       },
-      "routes/dashboard/settings": {
-        "id": "routes/dashboard/settings",
+      "routes/sales": {
+        "id": "routes/sales",
         "parentId": "routes/dashboard/layout",
-        "file": "app/routes/dashboard/settings.tsx",
-        "path": "dashboard/settings",
+        "file": "app/routes/sales.tsx",
+        "path": "sales",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/inventory": {
+        "id": "routes/inventory",
+        "parentId": "routes/dashboard/layout",
+        "file": "app/routes/inventory.tsx",
+        "path": "inventory",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/budget": {
+        "id": "routes/budget",
+        "parentId": "routes/dashboard/layout",
+        "file": "app/routes/budget.tsx",
+        "path": "budget",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/settings": {
+        "id": "routes/settings",
+        "parentId": "routes/dashboard/layout",
+        "file": "app/routes/settings.tsx",
+        "path": "settings",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/chat": {
+        "id": "routes/chat",
+        "parentId": "routes/dashboard/layout",
+        "file": "app/routes/chat.tsx",
+        "path": "chat",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/store-ops/layout": {
+        "id": "routes/store-ops/layout",
+        "parentId": "root",
+        "file": "app/routes/store-ops/layout.tsx",
+        "config": {}
+      },
+      "routes/store-ops/index": {
+        "id": "routes/store-ops/index",
+        "parentId": "routes/store-ops/layout",
+        "file": "app/routes/store-ops/index.tsx",
+        "path": "store-ops",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/store-ops/operational": {
+        "id": "routes/store-ops/operational",
+        "parentId": "routes/store-ops/layout",
+        "file": "app/routes/store-ops/operational.tsx",
+        "path": "store-ops/operational",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/store-ops/averages": {
+        "id": "routes/store-ops/averages",
+        "parentId": "routes/store-ops/layout",
+        "file": "app/routes/store-ops/averages.tsx",
+        "path": "store-ops/averages",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/store-ops/daily-checklist": {
+        "id": "routes/store-ops/daily-checklist",
+        "parentId": "routes/store-ops/layout",
+        "file": "app/routes/store-ops/daily-checklist.tsx",
+        "path": "store-ops/daily-checklist",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/store-ops/sl-checklist": {
+        "id": "routes/store-ops/sl-checklist",
+        "parentId": "routes/store-ops/layout",
+        "file": "app/routes/store-ops/sl-checklist.tsx",
+        "path": "store-ops/sl-checklist",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/store-ops/dl-checklist": {
+        "id": "routes/store-ops/dl-checklist",
+        "parentId": "routes/store-ops/layout",
+        "file": "app/routes/store-ops/dl-checklist.tsx",
+        "path": "store-ops/dl-checklist",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/store-ops/returns": {
+        "id": "routes/store-ops/returns",
+        "parentId": "routes/store-ops/layout",
+        "file": "app/routes/store-ops/returns.tsx",
+        "path": "store-ops/returns",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/store-ops/callbacks": {
+        "id": "routes/store-ops/callbacks",
+        "parentId": "routes/store-ops/layout",
+        "file": "app/routes/store-ops/callbacks.tsx",
+        "path": "store-ops/callbacks",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/store-ops/close-dated": {
+        "id": "routes/store-ops/close-dated",
+        "parentId": "routes/store-ops/layout",
+        "file": "app/routes/store-ops/close-dated.tsx",
+        "path": "store-ops/close-dated",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/store-ops/tablet-counts": {
+        "id": "routes/store-ops/tablet-counts",
+        "parentId": "routes/store-ops/layout",
+        "file": "app/routes/store-ops/tablet-counts.tsx",
+        "path": "store-ops/tablet-counts",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/store-ops/cleaning": {
+        "id": "routes/store-ops/cleaning",
+        "parentId": "routes/store-ops/layout",
+        "file": "app/routes/store-ops/cleaning.tsx",
+        "path": "store-ops/cleaning",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/store-ops/budget": {
+        "id": "routes/store-ops/budget",
+        "parentId": "routes/store-ops/layout",
+        "file": "app/routes/store-ops/budget.tsx",
+        "path": "store-ops/budget",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/store-ops/notifications": {
+        "id": "routes/store-ops/notifications",
+        "parentId": "routes/store-ops/layout",
+        "file": "app/routes/store-ops/notifications.tsx",
+        "path": "store-ops/notifications",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/store-ops/settings": {
+        "id": "routes/store-ops/settings",
+        "parentId": "routes/store-ops/layout",
+        "file": "app/routes/store-ops/settings.tsx",
+        "path": "store-ops/settings",
         "config": {
           "runtime": "nodejs"
         }
@@ -117,9 +373,9 @@
     }
   },
   "reactRouterConfig": {
-    "appDirectory": "/Users/michaelshimeles/Desktop/rsk/app",
+    "appDirectory": "/home/suppking/projects/supptraq-claude/app",
     "basename": "/",
-    "buildDirectory": "/Users/michaelshimeles/Desktop/rsk/build",
+    "buildDirectory": "/home/suppking/projects/supptraq-claude/build",
     "future": {
       "unstable_middleware": false,
       "unstable_optimizeDeps": false,
@@ -151,6 +407,24 @@
         "file": "routes/sign-up.tsx",
         "path": "sign-up/*"
       },
+      "routes/account-pending": {
+        "id": "routes/account-pending",
+        "parentId": "root",
+        "file": "routes/account-pending.tsx",
+        "path": "account-pending"
+      },
+      "routes/user-not-found": {
+        "id": "routes/user-not-found",
+        "parentId": "root",
+        "file": "routes/user-not-found.tsx",
+        "path": "user-not-found"
+      },
+      "routes/dev-login": {
+        "id": "routes/dev-login",
+        "parentId": "root",
+        "file": "routes/dev-login.tsx",
+        "path": "dev-login"
+      },
       "routes/pricing": {
         "id": "routes/pricing",
         "parentId": "root",
@@ -169,6 +443,30 @@
         "file": "routes/subscription-required.tsx",
         "path": "subscription-required"
       },
+      "routes/admin": {
+        "id": "routes/admin",
+        "parentId": "root",
+        "file": "routes/admin.tsx",
+        "path": "admin"
+      },
+      "routes/admin.grant-me": {
+        "id": "routes/admin.grant-me",
+        "parentId": "root",
+        "file": "routes/admin.grant-me.tsx",
+        "path": "admin/grant-me"
+      },
+      "routes/admin/setup": {
+        "id": "routes/admin/setup",
+        "parentId": "root",
+        "file": "routes/admin/setup.tsx",
+        "path": "admin/setup"
+      },
+      "routes/admin/quick-access": {
+        "id": "routes/admin/quick-access",
+        "parentId": "root",
+        "file": "routes/admin/quick-access.tsx",
+        "path": "admin/quick-access"
+      },
       "routes/dashboard/layout": {
         "id": "routes/dashboard/layout",
         "parentId": "root",
@@ -180,17 +478,130 @@
         "file": "routes/dashboard/index.tsx",
         "path": "dashboard"
       },
-      "routes/dashboard/chat": {
-        "id": "routes/dashboard/chat",
+      "routes/upload": {
+        "id": "routes/upload",
         "parentId": "routes/dashboard/layout",
-        "file": "routes/dashboard/chat.tsx",
-        "path": "dashboard/chat"
+        "file": "routes/upload.tsx",
+        "path": "upload"
       },
-      "routes/dashboard/settings": {
-        "id": "routes/dashboard/settings",
+      "routes/sales": {
+        "id": "routes/sales",
         "parentId": "routes/dashboard/layout",
-        "file": "routes/dashboard/settings.tsx",
-        "path": "dashboard/settings"
+        "file": "routes/sales.tsx",
+        "path": "sales"
+      },
+      "routes/inventory": {
+        "id": "routes/inventory",
+        "parentId": "routes/dashboard/layout",
+        "file": "routes/inventory.tsx",
+        "path": "inventory"
+      },
+      "routes/budget": {
+        "id": "routes/budget",
+        "parentId": "routes/dashboard/layout",
+        "file": "routes/budget.tsx",
+        "path": "budget"
+      },
+      "routes/settings": {
+        "id": "routes/settings",
+        "parentId": "routes/dashboard/layout",
+        "file": "routes/settings.tsx",
+        "path": "settings"
+      },
+      "routes/chat": {
+        "id": "routes/chat",
+        "parentId": "routes/dashboard/layout",
+        "file": "routes/chat.tsx",
+        "path": "chat"
+      },
+      "routes/store-ops/layout": {
+        "id": "routes/store-ops/layout",
+        "parentId": "root",
+        "file": "routes/store-ops/layout.tsx"
+      },
+      "routes/store-ops/index": {
+        "id": "routes/store-ops/index",
+        "parentId": "routes/store-ops/layout",
+        "file": "routes/store-ops/index.tsx",
+        "path": "store-ops"
+      },
+      "routes/store-ops/operational": {
+        "id": "routes/store-ops/operational",
+        "parentId": "routes/store-ops/layout",
+        "file": "routes/store-ops/operational.tsx",
+        "path": "store-ops/operational"
+      },
+      "routes/store-ops/averages": {
+        "id": "routes/store-ops/averages",
+        "parentId": "routes/store-ops/layout",
+        "file": "routes/store-ops/averages.tsx",
+        "path": "store-ops/averages"
+      },
+      "routes/store-ops/daily-checklist": {
+        "id": "routes/store-ops/daily-checklist",
+        "parentId": "routes/store-ops/layout",
+        "file": "routes/store-ops/daily-checklist.tsx",
+        "path": "store-ops/daily-checklist"
+      },
+      "routes/store-ops/sl-checklist": {
+        "id": "routes/store-ops/sl-checklist",
+        "parentId": "routes/store-ops/layout",
+        "file": "routes/store-ops/sl-checklist.tsx",
+        "path": "store-ops/sl-checklist"
+      },
+      "routes/store-ops/dl-checklist": {
+        "id": "routes/store-ops/dl-checklist",
+        "parentId": "routes/store-ops/layout",
+        "file": "routes/store-ops/dl-checklist.tsx",
+        "path": "store-ops/dl-checklist"
+      },
+      "routes/store-ops/returns": {
+        "id": "routes/store-ops/returns",
+        "parentId": "routes/store-ops/layout",
+        "file": "routes/store-ops/returns.tsx",
+        "path": "store-ops/returns"
+      },
+      "routes/store-ops/callbacks": {
+        "id": "routes/store-ops/callbacks",
+        "parentId": "routes/store-ops/layout",
+        "file": "routes/store-ops/callbacks.tsx",
+        "path": "store-ops/callbacks"
+      },
+      "routes/store-ops/close-dated": {
+        "id": "routes/store-ops/close-dated",
+        "parentId": "routes/store-ops/layout",
+        "file": "routes/store-ops/close-dated.tsx",
+        "path": "store-ops/close-dated"
+      },
+      "routes/store-ops/tablet-counts": {
+        "id": "routes/store-ops/tablet-counts",
+        "parentId": "routes/store-ops/layout",
+        "file": "routes/store-ops/tablet-counts.tsx",
+        "path": "store-ops/tablet-counts"
+      },
+      "routes/store-ops/cleaning": {
+        "id": "routes/store-ops/cleaning",
+        "parentId": "routes/store-ops/layout",
+        "file": "routes/store-ops/cleaning.tsx",
+        "path": "store-ops/cleaning"
+      },
+      "routes/store-ops/budget": {
+        "id": "routes/store-ops/budget",
+        "parentId": "routes/store-ops/layout",
+        "file": "routes/store-ops/budget.tsx",
+        "path": "store-ops/budget"
+      },
+      "routes/store-ops/notifications": {
+        "id": "routes/store-ops/notifications",
+        "parentId": "routes/store-ops/layout",
+        "file": "routes/store-ops/notifications.tsx",
+        "path": "store-ops/notifications"
+      },
+      "routes/store-ops/settings": {
+        "id": "routes/store-ops/settings",
+        "parentId": "routes/store-ops/layout",
+        "file": "routes/store-ops/settings.tsx",
+        "path": "store-ops/settings"
       }
     },
     "routeDiscovery": {

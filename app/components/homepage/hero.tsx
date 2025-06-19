@@ -16,50 +16,50 @@ export default function Hero() {
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:items-center lg:gap-20">
           {/* Left column - Text content */}
           <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6 }}
             className="flex flex-col space-y-8"
           >
             {/* Badge */}
             <motion.div 
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
             >
               <span className="inline-flex items-center rounded-full bg-white/10 backdrop-blur-sm px-4 py-2 text-sm font-medium text-white/90 ring-1 ring-white/20">
-                Trusted by 200+ franchise locations
+                Replaces $120K/year operations managers
               </span>
             </motion.div>
 
             {/* Headline with gradient text */}
             <motion.h1 
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.3 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
               className="text-5xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl"
             >
-              Turn Messy Inventory Data Into{" "}
+              Take Back{" "}
               <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-blue-300 bg-clip-text text-transparent">
-                Clear Decisions
+                Operational Control
               </span>
             </motion.h1>
 
             {/* Subheadline */}
             <motion.p 
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
               className="text-xl text-white/80 lg:text-2xl"
             >
-              The analytics platform built for supplement franchise operations. Upload your CSVs, get actionable insights in seconds.
+              Give your franchise the operational leverage of a $120K/year manager — without the payroll. Drop your POS reports, get complete visibility and control across all locations.
             </motion.p>
 
             {/* CTA Buttons */}
             <motion.div 
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.5 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
               className="flex flex-col space-y-4 sm:flex-row sm:space-x-4 sm:space-y-0"
             >
               <motion.div
@@ -72,7 +72,7 @@ export default function Hero() {
                   asChild
                 >
                   <Link to="/sign-up">
-                    <span className="relative z-10">Start Free Analysis</span>
+                    <span className="relative z-10">Start Scaling with Supptraq</span>
                     <ArrowRight className="ml-3 h-5 w-5 transition-transform group-hover:translate-x-1 relative z-10" />
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   </Link>
@@ -97,152 +97,310 @@ export default function Hero() {
             </motion.div>
           </motion.div>
 
-          {/* Right column - Animated Dashboard Mockup */}
+          {/* Right column - Data Transformation Visual */}
           <motion.div 
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 1, delay: 0.6 }}
-            className="relative h-[600px] w-full"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="relative h-[600px] w-full flex items-center justify-center"
           >
-            <div className="absolute inset-0 flex items-center justify-center">
-              {/* Glowing backdrop */}
-              <div className="absolute h-[400px] w-[400px] rounded-full bg-blue-500/20 blur-3xl" />
-
-              {/* Dashboard cards with floating animation */}
-              <div className="relative h-full w-full max-w-[500px]">
-                {/* Main dashboard card */}
-                <motion.div 
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 1, delay: 0.8 }}
-                  className="absolute top-0 left-0 right-0 rounded-2xl bg-white/95 backdrop-blur-sm p-6 shadow-2xl border border-white/20"
-                >
-                  {/* Header */}
-                  <div className="mb-4 flex items-center justify-between">
-                    <div className="h-6 w-32 rounded-full bg-gradient-to-r from-gray-200 to-gray-300"></div>
-                    <div className="flex space-x-2">
-                      <div className="h-3 w-3 rounded-full bg-red-400"></div>
-                      <div className="h-3 w-3 rounded-full bg-yellow-400"></div>
-                      <div className="h-3 w-3 rounded-full bg-green-400"></div>
-                    </div>
-                  </div>
-
-                  {/* Metrics grid */}
-                  <div className="grid grid-cols-3 gap-4 mb-6">
-                    <motion.div 
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ duration: 0.5, delay: 1.2 }}
-                      className="rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 p-4"
+            <div className="relative w-[550px] h-[500px] scale-110">
+              
+              {/* Left Side: Chaos Elements - Scattered POS Reports */}
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-36 h-96">
+                {Array.from({ length: 24 }).map((_, i) => {
+                  const initialY = (i * 20) % 380;
+                  const initialX = Math.random() * 100;
+                  const delay = (i % 12) * 0.5;
+                  
+                  return (
+                    <motion.div
+                      key={`chaos-${i}`}
+                      initial={{ 
+                        x: initialX,
+                        y: initialY,
+                        opacity: 0,
+                        rotate: Math.random() * 50 - 25,
+                        scale: 0.8 + Math.random() * 0.7
+                      }}
+                      animate={{
+                        x: [initialX, initialX + Math.sin(i) * 18, 200],
+                        y: [initialY, initialY + Math.cos(i) * 25, 200],
+                        opacity: [0, 0.7, 0.9, 0.3, 0],
+                        rotate: [Math.random() * 50 - 25, 0, 0],
+                        scale: [0.8 + Math.random() * 0.7, 1.1, 0.5, 0]
+                      }}
+                      transition={{
+                        duration: 6,
+                        delay: delay,
+                        repeat: Infinity,
+                        repeatDelay: 2.5,
+                        ease: "easeInOut"
+                      }}
+                      className="absolute"
                     >
-                      <div className="h-3 w-16 rounded-full bg-blue-300 mb-2"></div>
-                      <div className="h-8 w-12 rounded-md bg-blue-500 mb-1"></div>
-                      <div className="h-2 w-8 rounded-full bg-blue-400"></div>
+                      {/* Different document types */}
+                      {i % 4 === 0 && (
+                        <div className="w-5 h-6 bg-white/25 rounded-sm backdrop-blur-sm border border-white/10">
+                          <div className="w-3 h-0.5 bg-white/50 rounded mt-1 mx-auto"></div>
+                          <div className="w-2 h-0.5 bg-white/40 rounded mt-0.5 mx-auto"></div>
+                          <div className="w-2.5 h-0.5 bg-white/30 rounded mt-0.5 mx-auto"></div>
+                        </div>
+                      )}
+                      {i % 4 === 1 && (
+                        <div className="w-5 h-5 bg-white/20 rounded-full backdrop-blur-sm border border-white/10 flex items-end justify-center p-1">
+                          <div className="flex space-x-px">
+                            <div className="w-px h-2 bg-white/50"></div>
+                            <div className="w-px h-1.5 bg-white/50"></div>
+                            <div className="w-px h-2.5 bg-white/50"></div>
+                          </div>
+                        </div>
+                      )}
+                      {i % 4 === 2 && (
+                        <div className="w-6 h-4 bg-white/25 rounded-sm backdrop-blur-sm border border-white/10 grid grid-cols-3 gap-px p-1">
+                          {Array.from({ length: 6 }).map((_, j) => (
+                            <div key={j} className="bg-white/40 rounded-xs"></div>
+                          ))}
+                        </div>
+                      )}
+                      {i % 4 === 3 && (
+                        <div className="w-4 h-5 bg-white/20 backdrop-blur-sm border border-white/10 rotate-45"></div>
+                      )}
                     </motion.div>
-                    <motion.div 
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ duration: 0.5, delay: 1.3 }}
-                      className="rounded-xl bg-gradient-to-br from-green-50 to-green-100 p-4"
-                    >
-                      <div className="h-3 w-16 rounded-full bg-green-300 mb-2"></div>
-                      <div className="h-8 w-12 rounded-md bg-green-500 mb-1"></div>
-                      <div className="h-2 w-8 rounded-full bg-green-400"></div>
-                    </motion.div>
-                    <motion.div 
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ duration: 0.5, delay: 1.4 }}
-                      className="rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 p-4"
-                    >
-                      <div className="h-3 w-16 rounded-full bg-purple-300 mb-2"></div>
-                      <div className="h-8 w-12 rounded-md bg-purple-500 mb-1"></div>
-                      <div className="h-2 w-8 rounded-full bg-purple-400"></div>
-                    </motion.div>
-                  </div>
-
-                  {/* Chart area */}
-                  <motion.div 
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    transition={{ duration: 0.8, delay: 1.5 }}
-                    className="rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 p-4"
-                  >
-                    <div className="flex justify-between mb-4">
-                      <div className="h-3 w-24 rounded-full bg-gray-300"></div>
-                      <div className="h-3 w-16 rounded-full bg-gray-300"></div>
-                    </div>
-                    <div className="flex items-end space-x-1">
-                      {[16, 12, 20, 14, 10, 16, 8, 12, 18, 22, 14, 16].map((height, i) => (
-                        <motion.div
-                          key={i}
-                          initial={{ height: 0 }}
-                          animate={{ height: `${height * 4}px` }}
-                          transition={{ duration: 0.5, delay: 1.8 + i * 0.1 }}
-                          className="w-4 rounded-t-md bg-gradient-to-t from-blue-500 to-blue-400"
-                        />
-                      ))}
-                    </div>
-                  </motion.div>
-                </motion.div>
-
-                {/* Floating notification card */}
-                <motion.div 
-                  initial={{ y: -20, opacity: 0, x: 20 }}
-                  animate={{ y: 0, opacity: 1, x: 0 }}
-                  transition={{ duration: 0.8, delay: 1.0 }}
-                  className="absolute top-[15%] -right-12 w-64 rounded-2xl bg-white/90 backdrop-blur-sm p-4 shadow-xl border border-white/20"
-                >
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-orange-400 to-red-500"></div>
-                    <div className="h-3 w-32 rounded-full bg-gray-300"></div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-2 w-full rounded-full bg-gray-200"></div>
-                    <div className="h-2 w-3/4 rounded-full bg-gray-200"></div>
-                  </div>
-                  <div className="mt-4 flex justify-between">
-                    <div className="h-6 w-16 rounded-lg bg-gradient-to-r from-red-500 to-orange-500 flex items-center justify-center">
-                      <div className="h-2 w-8 rounded-full bg-white"></div>
-                    </div>
-                    <div className="h-6 w-16 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
-                      <div className="h-2 w-8 rounded-full bg-white"></div>
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* Floating analytics card */}
-                <motion.div 
-                  initial={{ y: 20, opacity: 0, x: -20 }}
-                  animate={{ y: 0, opacity: 1, x: 0 }}
-                  transition={{ duration: 0.8, delay: 1.1 }}
-                  className="absolute top-[60%] -left-12 w-48 rounded-2xl bg-white/90 backdrop-blur-sm p-4 shadow-xl border border-white/20"
-                >
-                  <div className="flex items-center space-x-2 mb-3">
-                    <div className="h-6 w-6 rounded-full bg-gradient-to-br from-blue-400 to-blue-600"></div>
-                    <div className="h-2 w-20 rounded-full bg-gray-300"></div>
-                  </div>
-                  <div className="rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 p-3">
-                    <div className="flex justify-between mb-2">
-                      <div className="h-2 w-12 rounded-full bg-blue-300"></div>
-                      <div className="h-2 w-8 rounded-full bg-blue-400"></div>
-                    </div>
-                    <div className="h-4 w-full rounded-md bg-white mb-2"></div>
-                    <div className="h-1 w-3/4 rounded-full bg-blue-200"></div>
-                  </div>
-                </motion.div>
-
-                {/* Continuous floating animation for all cards */}
-                <motion.div
-                  animate={{ y: [0, -10, 0] }}
-                  transition={{ 
-                    duration: 4,
-                    repeat: Infinity,
-                    ease: "easeInOut"
-                  }}
-                  className="absolute inset-0"
-                />
+                  );
+                })}
               </div>
+
+              {/* Central Supptraq Processing Hub */}
+              <motion.div
+                initial={{ scale: 0.7, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 1.8, delay: 0.8 }}
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20"
+              >
+                <div className="relative w-32 h-32">
+                  {/* Outer processing ring */}
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+                    className="absolute inset-0 rounded-full border border-blue-400/40"
+                  >
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-blue-400/90 rounded-full"></div>
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-1 h-1 bg-purple-400/70 rounded-full"></div>
+                    <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-0.5 bg-blue-300/60 rounded-full"></div>
+                  </motion.div>
+                  
+                  {/* Supptraq Icon Container */}
+                  <div className="absolute inset-4 rounded-full bg-gradient-to-br from-blue-500/95 to-purple-600/95 shadow-2xl flex items-center justify-center border border-blue-400/30">
+                    {/* Supptraq Icon */}
+                    <svg 
+                      viewBox="50 50 275 275" 
+                      className="w-12 h-12 text-white"
+                      fill="currentColor"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path d="M 187.578125 53.109375 C 168.882812 58.0625 156.492188 67.972656 109.421875 115.269531 C 62.570312 162.796875 58.96875 167.976562 63.921875 185.320312 C 67.078125 197.03125 79.015625 211.671875 91.851562 219.554688 C 101.085938 225.183594 105.589844 226.535156 120.457031 227.214844 C 138.027344 227.890625 138.027344 227.890625 157.171875 209.195312 C 167.757812 199.058594 176.316406 189.375 176.316406 188.019531 C 176.316406 186.445312 169.558594 179.015625 161.453125 171.355469 C 150.863281 161.21875 147.261719 156.488281 149.0625 154.6875 C 150.414062 153.335938 165.953125 151.535156 183.746094 150.632812 C 205.820312 149.507812 218.207031 147.929688 222.710938 145.679688 C 232.621094 140.5 316.863281 54.910156 315.058594 51.980469 C 312.582031 47.929688 203.34375 48.828125 187.578125 53.109375 Z M 187.578125 53.109375"/>
+                      <path d="M 239.382812 161.894531 C 230.148438 167.75 72.933594 327.667969 74.734375 329.46875 C 75.859375 330.597656 100.1875 331.046875 129.242188 330.597656 C 181.945312 329.921875 181.945312 329.921875 197.710938 322.484375 C 211.675781 315.957031 218.207031 310.324219 253.796875 274.285156 C 275.867188 251.765625 295.914062 230.140625 298.167969 226.535156 C 306.5 213.023438 302.898438 199.058594 287.355469 184.417969 C 264.382812 162.570312 249.515625 155.589844 239.382812 161.894531 Z M 239.382812 161.894531"/>
+                    </svg>
+                    
+                    {/* Processing indicator */}
+                    <motion.div
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={{ duration: 2.5, repeat: Infinity }}
+                      className="absolute top-2 right-2 w-2 h-2 bg-white/90 rounded-full"
+                    />
+                  </div>
+                  
+                  {/* Energy pulse waves */}
+                  {[1, 2, 3, 4].map((wave) => (
+                    <motion.div
+                      key={wave}
+                      animate={{ 
+                        scale: [1, 2.8, 2.8],
+                        opacity: [0.4, 0.1, 0]
+                      }}
+                      transition={{ 
+                        duration: 3.5, 
+                        repeat: Infinity, 
+                        delay: wave * 0.6,
+                        ease: "easeOut"
+                      }}
+                      className="absolute inset-0 rounded-full border border-blue-400/25"
+                    />
+                  ))}
+                </div>
+              </motion.div>
+
+              {/* Right Side: Multiple Organized Output Streams */}
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-40">
+                
+                {/* Main energy distribution hub */}
+                <motion.div
+                  initial={{ scaleX: 0, opacity: 0 }}
+                  animate={{ scaleX: 1, opacity: 1 }}
+                  transition={{ duration: 1.8, delay: 2.2, ease: "easeOut" }}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-12 h-3 origin-left"
+                >
+                  <div className="w-full h-full rounded-full bg-gradient-to-r from-blue-400/90 via-purple-400/80 to-blue-300/70 shadow-lg relative overflow-hidden"
+                       style={{ boxShadow: '0 0 25px rgba(59,130,246,0.4)' }}>
+                    
+                    {/* Flowing energy gradient */}
+                    <motion.div
+                      animate={{
+                        background: [
+                          'linear-gradient(90deg, rgba(59,130,246,0.9) 0%, rgba(147,51,234,0.8) 50%, rgba(147,197,253,0.7) 100%)',
+                          'linear-gradient(90deg, rgba(147,51,234,0.8) 0%, rgba(147,197,253,0.7) 50%, rgba(59,130,246,0.9) 100%)',
+                          'linear-gradient(90deg, rgba(59,130,246,0.9) 0%, rgba(147,51,234,0.8) 50%, rgba(147,197,253,0.7) 100%)'
+                        ]
+                      }}
+                      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                      className="absolute inset-0 rounded-full"
+                    />
+                    
+                    {/* Main flow particles */}
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <motion.div
+                        key={`main-flow-${i}`}
+                        animate={{
+                          x: [-4, 44],
+                          opacity: [0, 1, 1, 0]
+                        }}
+                        transition={{
+                          duration: 2,
+                          delay: 2.8 + i * 0.2,
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                        className="absolute top-1/2 -translate-y-1/2 w-1 h-1 bg-white/95 rounded-full"
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+
+                {/* Operational Status Outputs */}
+                {[
+                  { 
+                    label: 'Ordering', 
+                    status: 'Automated', 
+                    offset: -90, 
+                    delay: 0,
+                    icon: '📦'
+                  },
+                  { 
+                    label: 'Sales Tracking', 
+                    status: 'Complete', 
+                    offset: 0, 
+                    delay: 0.3,
+                    icon: '📊'
+                  },
+                  { 
+                    label: 'Operations', 
+                    status: 'Optimized', 
+                    offset: 90, 
+                    delay: 0.6,
+                    icon: '⚙️'
+                  }
+                ].map((operation, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.8, delay: 3.2 + operation.delay }}
+                    className="absolute right-0"
+                    style={{ top: `calc(50% + ${operation.offset}px)` }}
+                  >
+                    {/* Individual operation stream */}
+                    <motion.div
+                      initial={{ scaleX: 0 }}
+                      animate={{ scaleX: 1 }}
+                      transition={{ duration: 0.6, delay: 3.4 + operation.delay }}
+                      className="absolute right-40 top-1/2 -translate-y-1/2 w-10 h-1.5 origin-left"
+                    >
+                      <div className="w-full h-full rounded-full bg-gradient-to-r from-blue-400/60 to-purple-400/40 relative overflow-hidden">
+                        {/* Stream particles */}
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <motion.div
+                            key={`stream-${index}-${i}`}
+                            animate={{
+                              x: [-3, 36],
+                              opacity: [0, 0.8, 0]
+                            }}
+                            transition={{
+                              duration: 1.8,
+                              delay: 3.8 + operation.delay + i * 0.3,
+                              repeat: Infinity,
+                              ease: "easeInOut"
+                            }}
+                            className="absolute top-1/2 -translate-y-1/2 w-0.5 h-0.5 bg-white/80 rounded-full"
+                          />
+                        ))}
+                      </div>
+                    </motion.div>
+
+                    {/* Status indicator */}
+                    <div className="relative w-6 h-6 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full shadow-lg border-2 border-white/30">
+                      <motion.div
+                        animate={{ opacity: [0.7, 1, 0.7] }}
+                        transition={{ duration: 2, repeat: Infinity, delay: index * 0.5 }}
+                        className="absolute inset-0.5 bg-white/80 rounded-full flex items-center justify-center"
+                      >
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      </motion.div>
+                    </div>
+                    
+                    {/* Operation status card */}
+                    <motion.div
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.6, delay: 3.6 + operation.delay }}
+                      className="absolute left-10 top-1/2 -translate-y-1/2 whitespace-nowrap"
+                    >
+                      <div className="bg-white/15 backdrop-blur-md rounded-lg px-4 py-2.5 shadow-lg border border-white/20">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-sm">{operation.icon}</span>
+                          <div>
+                            <div className="text-sm font-medium text-white/90">{operation.label}</div>
+                            <div className="text-sm text-green-300 font-semibold">{operation.status}</div>
+                          </div>
+                          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Enhanced connection streams */}
+              <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
+                {Array.from({ length: 9 }).map((_, i) => {
+                  const startY = 60 + i * 45;
+                  const endY = 250;
+                  const curvature = 180 + Math.sin(i) * 40;
+                  
+                  return (
+                    <motion.path
+                      key={`stream-${i}`}
+                      d={`M 120 ${startY} Q ${curvature} ${startY + Math.sin(i) * 35} 270 ${endY}`}
+                      stroke="rgba(59,130,246,0.25)"
+                      strokeWidth="1.5"
+                      fill="none"
+                      initial={{ pathLength: 0, opacity: 0 }}
+                      animate={{ 
+                        pathLength: [0, 1, 1, 0],
+                        opacity: [0, 0.6, 0.6, 0]
+                      }}
+                      transition={{
+                        duration: 4,
+                        delay: 1.8 + i * 0.25,
+                        repeat: Infinity,
+                        repeatDelay: 3.5,
+                        ease: "easeInOut"
+                      }}
+                    />
+                  );
+                })}
+              </svg>
+
             </div>
           </motion.div>
         </div>

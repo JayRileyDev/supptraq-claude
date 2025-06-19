@@ -1,4 +1,4 @@
-import { IconDashboard, IconSettings, IconMessageCircle, IconUpload, IconReportAnalytics, IconCurrencyDollar, IconShoppingCart } from "@tabler/icons-react";
+import { IconDashboard, IconSettings, IconMessageCircle, IconUpload, IconCurrencyDollar, IconShoppingCart } from "@tabler/icons-react";
 import { Link, useLocation } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
@@ -39,12 +39,6 @@ const navigationItems = [
     url: "/chat",
     icon: MessageSquare,
     description: "Ask questions"
-  },
-  {
-    title: "Reports",
-    url: "/reports",
-    icon: IconReportAnalytics,
-    description: "Export & analysis"
   },
   {
     title: "Budget",

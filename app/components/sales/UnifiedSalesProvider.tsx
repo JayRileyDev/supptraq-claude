@@ -135,6 +135,7 @@ export function UnifiedSalesProvider({ children }: { children: ReactNode }) {
     setError(null);
   };
 
+
   const contextValue: UnifiedSalesContextType = {
     // Extract data from centralized query
     metrics: completeSalesData?.metrics || null,

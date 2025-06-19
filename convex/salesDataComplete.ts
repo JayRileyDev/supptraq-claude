@@ -152,6 +152,7 @@ export interface CompleteSalesData {
   };
 }
 
+
 // Main unified query that fetches and processes ALL data once
 export const getCompleteSalesData = query({
   args: { 

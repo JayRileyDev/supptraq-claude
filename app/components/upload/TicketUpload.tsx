@@ -8,6 +8,7 @@ import { useMutation } from 'convex/react'
 import { api } from '@/../convex/_generated/api'
 import { useAuth } from '@clerk/react-router'
 import { AlertCircle, CheckCircle } from 'lucide-react'
+import { useUploadRateLimit } from '~/hooks/use-upload-rate-limit'
 
 interface UploadStats {
     total: number
@@ -29,6 +30,7 @@ export default function TicketUpload() {
     const [transactionSum, setTransactionSum] = useState<number | null>(null)
     const [errors, setErrors] = useState<any[]>([])
     const { userId } = useAuth()
+    const { checkRateLimit, recordUpload, isRateLimited, remainingUploads } = useUploadRateLimit()
     
     // Use the two-step approach: parse then insert in batches
     const parseTickets = useMutation(api.ticketParserFixed.parseTicketsOnly)
@@ -279,6 +281,11 @@ export default function TicketUpload() {
             return
         }
 
+        // Check rate limit before proceeding
+        if (!checkRateLimit()) {
+            return; // Rate limit exceeded, user already notified
+        }
+
         setLoading(true)
         setProgress(0)
         setStats(null)
@@ -350,6 +357,9 @@ export default function TicketUpload() {
                                     { duration: 10000, id: 'upload-success' }
                                 )
                                 
+                                // Record successful upload for rate limiting
+                                recordUpload()
+                                
                                 // Store errors if any
                                 if (response.errors && response.errors.length > 0) {
                                     setErrors(response.errors)
@@ -358,7 +368,9 @@ export default function TicketUpload() {
                                 throw new Error(response.message || 'Processing failed')
                             }
                         } catch (err: any) {
-                            console.error('Upload error:', err)
+                            if (process.env.NODE_ENV === 'development') {
+                                console.error('Upload error:', err)
+                            }
                             toast.error(
                                 <div className="space-y-2">
                                     <div className="font-semibold">❌ Upload Failed</div>
@@ -371,14 +383,18 @@ export default function TicketUpload() {
                         }
                     },
                     error: (err: Error) => {
-                        console.error('Parse error:', err)
+                        if (process.env.NODE_ENV === 'development') {
+                            console.error('Parse error:', err)
+                        }
                         toast.error(`❌ CSV parse failed: ${err.message}`)
                         setLoading(false)
                         setProgress(0)
                     }
                 })
             } catch (err: unknown) {
-                console.error('File read error:', err)
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('File read error:', err)
+                }
                 toast.error(`❌ File read failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
                 setLoading(false)
                 setProgress(0)
@@ -386,7 +402,9 @@ export default function TicketUpload() {
         }
 
         reader.onerror = () => {
-            console.error('FileReader error')
+            if (process.env.NODE_ENV === 'development') {
+                console.error('FileReader error')
+            }
             toast.error('❌ Failed to read file')
             setLoading(false)
             setProgress(0)
@@ -399,42 +417,63 @@ export default function TicketUpload() {
         onDrop,
         accept: { 'text/csv': ['.csv'] },
         maxFiles: 1,
+        maxSize: 50 * 1024 * 1024, // 50MB limit
+        onDropRejected: (rejectedFiles) => {
+            rejectedFiles.forEach(file => {
+                if (file.file.size > 50 * 1024 * 1024) {
+                    toast.error('File too large. Maximum size is 50MB.');
+                } else {
+                    toast.error('Invalid file type. Please upload a CSV file.');
+                }
+            });
+        }
     })
 
     return (
-        <div className="w-full max-w-2xl mx-auto">
-            <div
-                {...getRootProps()}
-                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
-                    ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'}
-                    ${loading ? 'cursor-not-allowed opacity-75' : ''}`}
-            >
-                <input {...getInputProps()} disabled={loading} />
-                {loading ? (
-                    <div className="space-y-4">
-                        <div className="flex justify-center mb-4">
-                            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-                        </div>
-                        <p className="text-gray-600 font-medium">Processing ticket data...</p>
-                        <div className="w-full bg-gray-200 rounded-full h-3">
+        <div
+            {...getRootProps()}
+            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-300
+                ${isDragActive ? 'border-accent bg-accent/5 scale-[1.02]' : 'border-border hover:border-accent/50 hover:bg-muted/30'}
+                ${loading ? 'cursor-not-allowed opacity-75' : ''}`}
+        >
+            <input {...getInputProps()} disabled={loading} />
+            {loading ? (
+                <div className="space-y-4">
+                    <div className="flex justify-center">
+                        <div className="w-12 h-12 border-4 border-accent/20 border-t-accent rounded-full animate-spin"></div>
+                    </div>
+                    <div className="space-y-2">
+                        <p className="text-foreground font-medium">Processing sales data...</p>
+                        <div className="w-full bg-muted rounded-full h-2">
                             <div
-                                className="bg-blue-600 h-3 rounded-full transition-all duration-500 ease-out"
+                                className="bg-accent h-2 rounded-full transition-all duration-500 ease-out"
                                 style={{ width: `${progress}%` }}
                             />
                         </div>
-                        <p className="text-sm text-gray-500 text-center">{progress}% complete</p>
-                        <p className="text-xs text-gray-400 text-center">Large files are processed in chunks for optimal performance</p>
+                        <p className="text-sm text-muted-foreground">{progress}% complete</p>
+                        <p className="text-xs text-muted-foreground">Large files are processed in chunks for optimal performance</p>
                     </div>
-                ) : (
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {/* Rate limit info */}
+                    {!isRateLimited && (
+                        <div className="text-xs text-muted-foreground">
+                            {remainingUploads} uploads remaining this minute
+                        </div>
+                    )}
+                    <div className="mx-auto w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors duration-300">
+                        <span className="text-2xl">🎫</span>
+                    </div>
                     <div className="space-y-2">
-                        <p className="text-lg font-medium text-gray-700">
-                            {isDragActive ? 'Drop the file here' : 'Drag & drop a CSV file here, or click to select'}
+                        <p className="text-lg font-medium text-foreground">
+                            {isDragActive ? 'Drop your CSV file here' : 'Drag & drop sales CSV here'}
                         </p>
-                        <p className="text-sm text-gray-500">Only CSV files are accepted</p>
+                        <p className="text-sm text-muted-foreground">or click to browse files</p>
+                        <p className="text-xs text-muted-foreground">CSV files only • Maximum 50MB • Optimized chunks</p>
                     </div>
-                )}
-            </div>
-
+                </div>
+            )}
         </div>
     )
 } 

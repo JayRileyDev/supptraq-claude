@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Separator } from "~/components/ui/separator";
 import { UserPlus, Settings, Trash2, Crown, User, Shield } from "lucide-react";
 import { AVAILABLE_PAGES, PAGE_DISPLAY_NAMES } from "../../convex/accessControl";
+import { PageAccessGuard } from "~/components/access/PageAccessGuard";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { userId } = await getAuth({ request });
@@ -100,7 +101,8 @@ export default function TeamManagementPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <PageAccessGuard pagePath="/settings">
+      <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -291,5 +293,6 @@ export default function TeamManagementPage() {
         </Dialog>
       </div>
     </div>
+    </PageAccessGuard>
   );
 }

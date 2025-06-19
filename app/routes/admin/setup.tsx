@@ -236,7 +236,7 @@ export default function AdminSetupPage() {
           <ol className="list-decimal list-inside space-y-2 text-sm">
             <li>Create organizations (usually just "Supplement King")</li>
             <li>Create franchises under each organization</li>
-            <li>Go to <a href="/admin/users" className="text-blue-600 hover:underline">User Management</a> to create user profiles</li>
+            <li>Go to <a href="/admin" className="text-blue-600 hover:underline">Admin Dashboard</a> to create user profiles</li>
             <li>Share email addresses with users for sign-up</li>
           </ol>
         </CardContent>

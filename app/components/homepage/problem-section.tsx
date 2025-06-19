@@ -5,24 +5,24 @@ export default function ProblemSection() {
   const problems = [
     {
       icon: TrendingDown,
-      title: "Lost Revenue from Stockouts",
-      description: "Empty shelves mean missed sales opportunities. Without real-time visibility, you're flying blind on inventory levels across locations.",
+      title: "\"My managers are drowning in spreadsheets\"",
+      description: "Your team spends hours every week cleaning data, building reports, and chasing numbers instead of driving sales and optimizing operations.",
       color: "from-red-500 to-orange-500",
       bgColor: "from-red-50 to-orange-50",
       accent: "bg-red-500"
     },
     {
       icon: AlertTriangle,
-      title: "Overstock Eating Profits",
-      description: "Excess inventory ties up capital and eats into margins. Dead stock becomes expensive lessons without proper analytics.",
+      title: "\"I don't know which stores are really performing\"",
+      description: "Without real-time visibility into sales, inventory, and team performance, you're managing blind — reacting to problems instead of preventing them.",
       color: "from-orange-500 to-yellow-500",
       bgColor: "from-orange-50 to-yellow-50",
       accent: "bg-orange-500"
     },
     {
       icon: Eye,
-      title: "No Visibility Across Locations",
-      description: "Managing multiple franchise locations without centralized insights creates operational chaos and missed optimization opportunities.",
+      title: "\"Reordering takes forever and it's still wrong\"",
+      description: "Manual inventory management means stockouts, overstock, and thousands in lost revenue. Your team wants to work smarter, not harder.",
       color: "from-purple-500 to-indigo-500",
       bgColor: "from-purple-50 to-indigo-50",
       accent: "bg-purple-500"
@@ -51,9 +51,9 @@ export default function ProblemSection() {
             viewport={{ once: true }}
             className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl lg:text-6xl mb-6"
           >
-            Drowning in{" "}
+            Tired of{" "}
             <span className="bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 bg-clip-text text-transparent">
-              Spreadsheets?
+              Flying Blind?
             </span>
           </motion.h2>
           <motion.p
@@ -63,7 +63,7 @@ export default function ProblemSection() {
             viewport={{ once: true }}
             className="text-xl text-gray-600 max-w-3xl mx-auto"
           >
-            Franchise operators lose thousands in revenue every month due to poor inventory visibility and reactive decision-making.
+            Smart franchise owners are tired of hiring expensive managers just to get basic operational visibility. There's a better way.
           </motion.p>
         </motion.div>
 

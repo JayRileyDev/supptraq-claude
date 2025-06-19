@@ -27,6 +27,7 @@ export default defineSchema({
     tokenIdentifier: v.string(),
     orgId: v.optional(v.id("organizations")),
     franchiseId: v.optional(v.id("franchises")),
+    storeId: v.optional(v.string()), // for store operations accounts
     role: v.optional(v.union(v.literal("owner"), v.literal("member"))),
     allowedPages: v.optional(v.array(v.string())), // for members only
     isStoreOps: v.optional(v.boolean()), // true for store operations accounts
@@ -35,6 +36,7 @@ export default defineSchema({
     .index("by_token", ["tokenIdentifier"])
     .index("by_org", ["orgId"])
     .index("by_franchise", ["franchiseId"])
+    .index("by_store_id", ["storeId"])
     .index("by_role", ["role"])
     .index("by_store_ops", ["isStoreOps"]),
 
@@ -186,6 +188,7 @@ export default defineSchema({
     to_store_id: v.string(),
     qty: v.number(),
     primary_vendor: v.string(),
+    box_qty: v.optional(v.boolean()),
   })
       .index("by_upload", ["upload_id"])
       .index("by_item", ["item_number"])

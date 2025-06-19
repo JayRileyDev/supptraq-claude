@@ -3,6 +3,7 @@ import { Bell, Check, X, AlertTriangle, Info } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
+import { PageAccessGuard } from "~/components/access/PageAccessGuard";
 
 const notifications = [
   {
@@ -46,7 +47,8 @@ const getIcon = (type: string) => {
 
 export default function NotificationsPage() {
   return (
-    <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 min-h-screen page-background">
+    <PageAccessGuard pagePath="/notifications">
+      <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 min-h-screen page-background">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -119,5 +121,6 @@ export default function NotificationsPage() {
         )}
       </div>
     </div>
+    </PageAccessGuard>
   );
 }

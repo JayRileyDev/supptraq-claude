@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
+import { Progress } from "~/components/ui/progress";
+import { Avatar, AvatarFallback } from "~/components/ui/avatar";
 import { 
   CheckSquare, 
   Calendar,
@@ -12,16 +14,24 @@ import {
   ChevronRight,
   Plus,
   Trash2,
-  AlertCircle
+  AlertCircle,
+  Target,
+  TrendingUp,
+  CheckCircle2,
+  Clock,
+  User,
+  Zap,
+  RotateCcw
 } from "lucide-react";
 import { cn } from "~/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const FULL_DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export default function DailyChecklist() {
   const [currentWeek, setCurrentWeek] = useState(() => {
-    // Get the Monday of the current week
     const now = new Date();
     const day = now.getDay();
     const diff = now.getDate() - day + (day === 0 ? -6 : 1);
@@ -39,19 +49,16 @@ export default function DailyChecklist() {
 
   const [newTaskName, setNewTaskName] = useState("");
   const [userInitials, setUserInitials] = useState(() => {
-    // Get initials from localStorage or default
     return localStorage.getItem("userInitials") || "";
   });
 
   useEffect(() => {
-    // Save initials to localStorage
     if (userInitials) {
       localStorage.setItem("userInitials", userInitials);
     }
   }, [userInitials]);
 
   useEffect(() => {
-    // Initialize checklist if it doesn't exist
     if (checklist === null) {
       initializeChecklist({ week_start: currentWeek });
     }
@@ -129,11 +136,33 @@ export default function DailyChecklist() {
       completed, 
       total, 
       percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
-      requiredPercentage: requiredTotal > 0 ? Math.round((requiredCompleted / requiredTotal) * 100) : 0
+      requiredPercentage: requiredTotal > 0 ? Math.round((requiredCompleted / requiredTotal) * 100) : 0,
+      requiredCompleted,
+      requiredTotal
     };
   };
 
+  const getTodayStats = () => {
+    if (!checklist) return { completed: 0, total: 0 };
+    
+    const today = new Date();
+    const weekDay = today.getDay();
+    const todayIndex = weekDay === 0 ? 6 : weekDay - 1;
+    const todayKey = DAYS[todayIndex];
+    
+    let completed = 0;
+    let total = checklist.tasks.length;
+    
+    checklist.tasks.forEach(task => {
+      if (task[todayKey]) completed++;
+    });
+    
+    return { completed, total, percentage: total > 0 ? Math.round((completed / total) * 100) : 0 };
+  };
+
   const stats = getCompletionStats();
+  const todayStats = getTodayStats();
+  
   const isToday = (day: typeof DAYS[number]) => {
     const today = new Date();
     const weekDay = today.getDay();
@@ -141,48 +170,81 @@ export default function DailyChecklist() {
     return DAYS[todayIndex] === day;
   };
 
+  const getCurrentDayName = () => {
+    const today = new Date();
+    const weekDay = today.getDay();
+    const todayIndex = weekDay === 0 ? 6 : weekDay - 1;
+    return FULL_DAY_NAMES[todayIndex];
+  };
+
   if (checklist === undefined) {
-    return <div className="p-8">Loading checklist...</div>;
+    return (
+      <div className="p-6 flex items-center justify-center h-64">
+        <div className="text-center space-y-4">
+          <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
+          <p className="text-muted-foreground">Loading checklist...</p>
+        </div>
+      </div>
+    );
   }
 
   if (checklist === null) {
-    return <div className="p-8">Initializing checklist...</div>;
+    return (
+      <div className="p-6 flex items-center justify-center h-64">
+        <div className="text-center space-y-4">
+          <RotateCcw className="w-8 h-8 animate-spin text-primary mx-auto" />
+          <p className="text-muted-foreground">Initializing checklist...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Daily Checklist</h1>
-          <p className="mt-2 text-gray-600">
-            Track daily operational tasks for your team
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold text-foreground">Daily Checklist</h1>
+          <p className="text-muted-foreground">
+            Track and manage your daily operational tasks
           </p>
         </div>
+        
         <div className="flex items-center gap-4">
-          <div className="text-right">
+          {/* User Initials */}
+          <div className="flex items-center gap-2">
+            <Avatar className="h-8 w-8">
+              <AvatarFallback className="text-xs font-semibold">
+                {userInitials || <User className="h-4 w-4" />}
+              </AvatarFallback>
+            </Avatar>
             <Input
-              placeholder="Your initials"
+              placeholder="Initials"
               value={userInitials}
               onChange={(e) => setUserInitials(e.target.value.toUpperCase())}
-              className="w-24 text-center"
+              className="w-20 text-center text-sm"
               maxLength={3}
             />
           </div>
-          <div className="flex items-center gap-2">
+          
+          {/* Week Navigation */}
+          <div className="flex items-center gap-2 bg-muted/50 rounded-lg p-1">
             <Button
-              variant="outline"
-              size="icon"
+              variant="ghost"
+              size="sm"
               onClick={() => navigateWeek(-1)}
+              className="h-8 w-8 p-0"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="min-w-[200px] text-center font-medium">
+            <span className="min-w-[180px] text-center text-sm font-medium px-3">
               {formatWeekRange()}
             </span>
             <Button
-              variant="outline"
-              size="icon"
+              variant="ghost"
+              size="sm"
               onClick={() => navigateWeek(1)}
+              className="h-8 w-8 p-0"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -190,169 +252,276 @@ export default function DailyChecklist() {
         </div>
       </div>
 
-      {/* Progress Stats */}
-      <div className="mb-6 grid gap-4 md:grid-cols-3">
-        <Card>
+      {/* Stats Overview */}
+      <div className="grid gap-6 md:grid-cols-4">
+        <Card className="border-0 shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Overall Completion</p>
-                <p className="text-2xl font-bold">{stats.percentage}%</p>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Today ({getCurrentDayName()})</p>
+                <p className="text-2xl font-bold text-foreground">{todayStats.percentage}%</p>
+                <p className="text-xs text-muted-foreground">{todayStats.completed} of {todayStats.total} tasks</p>
               </div>
-              <CheckSquare className="h-8 w-8 text-blue-600" />
+              <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
             </div>
-            <div className="mt-2 h-2 rounded-full bg-gray-200">
-              <div
-                className="h-2 rounded-full bg-blue-600 transition-all"
-                style={{ width: `${stats.percentage}%` }}
-              />
-            </div>
+            <Progress value={todayStats.percentage} className="mt-3 h-2" />
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-0 shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Required Tasks</p>
-                <p className="text-2xl font-bold">{stats.requiredPercentage}%</p>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Week Progress</p>
+                <p className="text-2xl font-bold text-foreground">{stats.percentage}%</p>
+                <p className="text-xs text-muted-foreground">{stats.completed} of {stats.total} completed</p>
               </div>
-              <AlertCircle className="h-8 w-8 text-yellow-600" />
+              <div className="p-3 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                <TrendingUp className="h-6 w-6" />
+              </div>
             </div>
-            <div className="mt-2 h-2 rounded-full bg-gray-200">
-              <div
-                className="h-2 rounded-full bg-yellow-600 transition-all"
-                style={{ width: `${stats.requiredPercentage}%` }}
-              />
-            </div>
+            <Progress value={stats.percentage} className="mt-3 h-2" />
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-0 shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Tasks Completed</p>
-                <p className="text-2xl font-bold">
-                  {stats.completed}/{stats.total}
-                </p>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Required Tasks</p>
+                <p className="text-2xl font-bold text-foreground">{stats.requiredPercentage}%</p>
+                <p className="text-xs text-muted-foreground">{stats.requiredCompleted} of {stats.requiredTotal} done</p>
               </div>
-              <Calendar className="h-8 w-8 text-green-600" />
+              <div className="p-3 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                <Target className="h-6 w-6" />
+              </div>
+            </div>
+            <Progress value={stats.requiredPercentage} className="mt-3 h-2" />
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Streak</p>
+                <p className="text-2xl font-bold text-foreground">5</p>
+                <p className="text-xs text-muted-foreground">Days in a row</p>
+              </div>
+              <div className="p-3 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                <Zap className="h-6 w-6" />
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Main Checklist */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Weekly Tasks</CardTitle>
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="flex items-center gap-2">
+            <CheckSquare className="h-5 w-5 text-primary" />
+            Weekly Task Matrix
+          </CardTitle>
+          <Badge variant="outline" className="text-xs">
+            {checklist?.tasks.length || 0} tasks
+          </Badge>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr>
-                  <th className="sticky left-0 bg-white p-3 text-left">Task</th>
-                  {DAY_LABELS.map((day, index) => (
-                    <th
-                      key={day}
-                      className={cn(
-                        "min-w-[80px] p-3 text-center",
-                        isToday(DAYS[index]) && "bg-blue-50 font-bold text-blue-700"
-                      )}
-                    >
-                      {day}
-                    </th>
-                  ))}
-                  <th className="p-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {checklist?.tasks.map((task, taskIndex) => (
-                  <tr
-                    key={taskIndex}
-                    className={cn(
-                      "border-t",
-                      task.is_required && "bg-yellow-50"
-                    )}
-                  >
-                    <td className="sticky left-0 bg-inherit p-3">
-                      <div className="flex items-center gap-2">
-                        <span className={cn(
-                          "font-medium",
-                          task.is_required && "text-yellow-700"
-                        )}>
-                          {task.task_name}
-                        </span>
-                        {task.is_required && (
-                          <Badge variant="outline" className="text-xs">
-                            Required
-                          </Badge>
-                        )}
-                      </div>
-                      {task.task_category && (
-                        <p className="text-xs text-gray-500">{task.task_category}</p>
-                      )}
-                    </td>
-                    {DAYS.map((day) => (
-                      <td
-                        key={day}
+          <div className="space-y-4">
+            {/* Desktop View */}
+            <div className="hidden lg:block">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-4 font-semibold text-foreground min-w-[200px]">Task</th>
+                      {DAY_LABELS.map((day, index) => (
+                        <th
+                          key={day}
+                          className={cn(
+                            "text-center p-4 font-semibold min-w-[100px]",
+                            isToday(DAYS[index]) && "bg-primary/5 text-primary"
+                          )}
+                        >
+                          <div className="space-y-1">
+                            <div className={cn(
+                              "font-semibold",
+                              isToday(DAYS[index]) && "text-primary"
+                            )}>
+                              {day}
+                            </div>
+                            {isToday(DAYS[index]) && (
+                              <Badge variant="outline" size="sm" className="text-xs border-primary text-primary">
+                                Today
+                              </Badge>
+                            )}
+                          </div>
+                        </th>
+                      ))}
+                      <th className="w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {checklist?.tasks.map((task, taskIndex) => (
+                      <motion.tr
+                        key={taskIndex}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: taskIndex * 0.05 }}
                         className={cn(
-                          "p-3 text-center",
-                          isToday(day) && "bg-blue-50"
+                          "border-b hover:bg-muted/30 transition-colors",
+                          task.is_required && "bg-amber-500/5"
                         )}
                       >
-                        <Button
-                          variant={task[day] ? "default" : "outline"}
-                          size="sm"
-                          className={cn(
-                            "h-8 w-12 text-xs",
-                            task[day] && "bg-green-600 hover:bg-green-700"
+                        <td className="p-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-foreground">
+                                {task.task_name}
+                              </span>
+                              {task.is_required && (
+                                <Badge variant="outline" size="sm" className="text-xs border-amber-500 text-amber-700 dark:text-amber-300">
+                                  Required
+                                </Badge>
+                              )}
+                            </div>
+                            {task.task_category && (
+                              <p className="text-xs text-muted-foreground">{task.task_category}</p>
+                            )}
+                          </div>
+                        </td>
+                        {DAYS.map((day) => (
+                          <td
+                            key={day}
+                            className={cn(
+                              "p-4 text-center",
+                              isToday(day) && "bg-primary/5"
+                            )}
+                          >
+                            <Button
+                              variant={task[day] ? "default" : "outline"}
+                              size="sm"
+                              className={cn(
+                                "h-9 w-16 text-xs font-medium transition-all",
+                                task[day] 
+                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm" 
+                                  : "hover:bg-muted"
+                              )}
+                              onClick={() => handleTaskToggle(taskIndex, day)}
+                            >
+                              {task[day] ? (
+                                <div className="flex items-center gap-1">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  <span className="text-xs">{task[day]}</span>
+                                </div>
+                              ) : (
+                                "Mark"
+                              )}
+                            </Button>
+                          </td>
+                        ))}
+                        <td className="p-4">
+                          {task.task_category === "Custom" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => removeTask({
+                                week_start: currentWeek,
+                                task_index: taskIndex,
+                              })}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           )}
-                          onClick={() => handleTaskToggle(taskIndex, day)}
-                        >
-                          {task[day] || "-"}
-                        </Button>
-                      </td>
+                        </td>
+                      </motion.tr>
                     ))}
-                    <td className="p-3">
-                      {task.task_category === "Custom" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => removeTask({
-                            week_start: currentWeek,
-                            task_index: taskIndex,
-                          })}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Mobile View */}
+            <div className="lg:hidden space-y-4">
+              {checklist?.tasks.map((task, taskIndex) => (
+                <Card key={taskIndex} className="border">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h4 className="font-medium text-foreground">{task.task_name}</h4>
+                        {task.task_category && (
+                          <p className="text-xs text-muted-foreground">{task.task_category}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {task.is_required && (
+                          <Badge variant="outline" size="sm">Required</Badge>
+                        )}
+                        {task.task_category === "Custom" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeTask({
+                              week_start: currentWeek,
+                              task_index: taskIndex,
+                            })}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-7 gap-2">
+                      {DAYS.map((day, dayIndex) => (
+                        <div key={day} className="text-center">
+                          <div className={cn(
+                            "text-xs font-medium mb-1",
+                            isToday(day) && "text-primary"
+                          )}>
+                            {DAY_LABELS[dayIndex]}
+                          </div>
+                          <Button
+                            variant={task[day] ? "default" : "outline"}
+                            size="sm"
+                            className={cn(
+                              "h-8 w-full text-xs",
+                              task[day] && "bg-emerald-600 hover:bg-emerald-700"
+                            )}
+                            onClick={() => handleTaskToggle(taskIndex, day)}
+                          >
+                            {task[day] ? "✓" : "-"}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
 
-          {/* Add new task */}
-          <div className="mt-6 flex gap-2">
-            <Input
-              placeholder="Add a new task..."
-              value={newTaskName}
-              onChange={(e) => setNewTaskName(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleAddTask()}
-            />
-            <Button onClick={handleAddTask}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Task
-            </Button>
-          </div>
-
-          <div className="mt-4 text-sm text-gray-500">
-            <p>💡 Tip: Tasks highlighted in yellow are required daily tasks.</p>
+          {/* Add New Task */}
+          <div className="mt-6 pt-6 border-t">
+            <div className="flex gap-3">
+              <Input
+                placeholder="Add a new custom task..."
+                value={newTaskName}
+                onChange={(e) => setNewTaskName(e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && handleAddTask()}
+                className="flex-1"
+              />
+              <Button onClick={handleAddTask} disabled={!newTaskName.trim()}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Task
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              💡 Required tasks are highlighted and must be completed daily for compliance.
+            </p>
           </div>
         </CardContent>
       </Card>

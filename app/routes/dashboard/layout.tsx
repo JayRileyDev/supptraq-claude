@@ -10,14 +10,16 @@ import { api } from "../../../convex/_generated/api";
 import { Outlet } from "react-router";
 import { Suspense } from "react";
 
+import { logger } from "~/lib/logger";
+
 export async function loader(args: any) {
-  console.log("🏁 Dashboard loader starting...");
+  logger.debug("Dashboard loader starting");
   const { userId, getToken } = await getAuth(args);
-  console.log("🔑 UserId from auth:", userId);
+  logger.debug("UserId from auth", { hasUserId: !!userId });
 
   // Redirect to sign-in if not authenticated
   if (!userId) {
-    console.log("❌ No userId, redirecting to sign-in");
+    logger.info("No userId, redirecting to sign-in");
     throw redirect("/sign-in");
   }
 
@@ -30,54 +32,42 @@ export async function loader(args: any) {
   }
 
   try {
-    console.log("🔍 Checking if user exists in database...");
+    logger.debug("Checking if user exists in database");
     // Check if user exists in our database - use getCurrentUser like onboarding does
     const user = await convex.query(api.users.getCurrentUser);
-    console.log("👤 User from database:", user);
+    logger.debug("User from database", { hasUser: !!user, userId: user?._id });
 
     // If user doesn't exist in database, redirect to user not found page
     if (!user) {
-      console.log("❌ User doesn't exist in database, redirecting to user not found");
+      logger.warn("User doesn't exist in database, redirecting to user not found");
       throw redirect("/user-not-found");
     }
 
+    // If this is a store ops user, redirect them to store ops portal
+    if (user.isStoreOps) {
+      logger.info("Store ops user detected, redirecting to store ops portal");
+      throw redirect("/store-ops");
+    }
+
     // Check if user account is properly set up by dev team (has org, franchise, role)
-    console.log("🔍 Checking user account setup by dev team:", {
+    logger.debug("Checking user account setup by dev team", {
       orgId: !!user.orgId,
       franchiseId: !!user.franchiseId,
       role: !!user.role
     });
     
     if (!user.orgId || !user.franchiseId || !user.role) {
-      console.log("❌ User account not fully configured by dev team, redirecting to user not found");
+      logger.warn("User account not fully configured by dev team, redirecting to user not found");
       throw redirect("/user-not-found");
     }
 
-    console.log("🔍 Checking subscription status...");
-    // Check subscription status with error handling
-    let subscriptionStatus;
-    try {
-      subscriptionStatus = await convex.query(api.subscriptions.checkUserSubscriptionStatus, { userId });
-      console.log("💳 Subscription status:", subscriptionStatus);
-    } catch (subError) {
-      console.error("❌ Subscription check failed:", subError);
-      // Allow access but user may be redirected later
-      subscriptionStatus = { hasActiveSubscription: false };
-    }
-
-    // Redirect to subscription-required if no active subscription
-    if (!subscriptionStatus?.hasActiveSubscription) {
-      console.log("❌ No active subscription, redirecting to subscription-required");
-      throw redirect("/subscription-required");
-    }
-
-    console.log("✅ All checks passed, allowing dashboard access");
+    logger.info("All checks passed, allowing dashboard access");
     // Return minimal data - user info available client-side
-    return { hasSubscription: true };
+    return { success: true };
   } catch (error) {
     // Check if this is a Response object (redirect)
     if (error instanceof Response) {
-      console.log("🔄 Redirect response detected, passing through");
+      logger.debug("Redirect response detected, passing through");
       // This is a redirect response, let it pass through
       throw error;
     }
@@ -88,12 +78,12 @@ export async function loader(args: any) {
       error.message.includes('auth') || 
       error.message.includes('Unauthorized')
     )) {
-      console.error("🔑 Authentication error, redirecting to sign-in:", error.message);
+      logger.error("Authentication error, redirecting to sign-in", error);
       throw redirect("/sign-in");
     }
     
     // Only catch actual errors, not redirects
-    console.error("❌ Dashboard loader error:", error);
+    logger.error("Dashboard loader error", error);
     throw redirect("/user-not-found");
   }
 }

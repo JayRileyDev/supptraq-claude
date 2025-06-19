@@ -19,7 +19,8 @@
       "Bash(cp:*)",
       "Bash(git add:*)",
       "Bash(sed:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }

@@ -9,7 +9,6 @@ import WorkflowSection from "~/components/homepage/workflow-section";
 import TrustSecurity from "~/components/homepage/trust-security";
 import PricingCTA from "~/components/homepage/pricing-cta";
 import Footer from "~/components/homepage/footer";
-// Homepage is public - no auth needed
 
 export default function HomePage() {
   return (

@@ -24,8 +24,10 @@ export default function AdminUsersPage() {
     password: "",
     name: "",
     orgId: "",
-    franchiseName: "",
+    franchiseId: "",
+    createNewFranchise: false,
     role: "member" as "owner" | "member",
+    isStoreOps: false,
     allowedPages: [] as string[],
   });
   const [isCreating, setIsCreating] = useState(false);
@@ -34,6 +36,9 @@ export default function AdminUsersPage() {
 
   const users = useQuery(api.admin.getAllUsers);
   const organizations = useQuery(api.admin.getOrganizations);
+  const franchises = useQuery(api.admin.getFranchisesByOrg, 
+    newUser.orgId ? { orgId: newUser.orgId as any } : "skip"
+  );
   
   const createUserProfile = useMutation(api.admin.createUserProfile);
   const createOrganization = useMutation(api.admin.createOrganization);
@@ -50,8 +55,15 @@ export default function AdminUsersPage() {
 
   const handleCreateUser = async () => {
     try {
-      if (!newUser.email || !newUser.username || !newUser.password || !newUser.name || !newUser.orgId || !newUser.franchiseName) {
+      // Validation
+      if (!newUser.email || !newUser.username || !newUser.password || !newUser.name || !newUser.orgId) {
         toast.error("Please fill in all required fields");
+        return;
+      }
+
+      // Validate franchise assignment
+      if (!newUser.createNewFranchise && !newUser.franchiseId) {
+        toast.error("Please select an existing franchise or choose to create a new one");
         return;
       }
 
@@ -69,8 +81,10 @@ export default function AdminUsersPage() {
           password: newUser.password,
           name: newUser.name,
           orgId: newUser.orgId,
-          franchiseName: newUser.franchiseName,
+          franchiseId: newUser.franchiseId,
+          createNewFranchise: newUser.createNewFranchise,
           role: newUser.role,
+          isStoreOps: newUser.isStoreOps,
           allowedPages: newUser.role === "member" ? newUser.allowedPages : undefined,
         }),
       });
@@ -99,7 +113,9 @@ export default function AdminUsersPage() {
           name: "",
           orgId: "",
           franchiseId: "",
+          createNewFranchise: false,
           role: "member",
+          isStoreOps: false,
           allowedPages: [],
         });
       } else {
@@ -113,7 +129,7 @@ export default function AdminUsersPage() {
     }
   };
 
-  const allPages = [
+  const ownerOpsPages = [
     "/dashboard",
     "/upload", 
     "/sales",
@@ -123,6 +139,14 @@ export default function AdminUsersPage() {
     "/settings",
     "/chat"
   ];
+
+  const storeOpsPages = [
+    "/store-ops"
+  ];
+
+  const getAvailablePages = () => {
+    return newUser.isStoreOps ? storeOpsPages : ownerOpsPages;
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -139,9 +163,12 @@ export default function AdminUsersPage() {
               Create User
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Create User Profile</DialogTitle>
+              <DialogTitle>Create Complete User Account</DialogTitle>
+              <p className="text-sm text-muted-foreground mt-2">
+                Creates both Clerk authentication and Convex profile with immediate access
+              </p>
             </DialogHeader>
             
             <div className="space-y-4">
@@ -216,47 +243,102 @@ export default function AdminUsersPage() {
                 </Select>
               </div>
 
-              <div>
-                <Label htmlFor="franchise">Franchise *</Label>
-                <Select 
-                  value={newUser.franchiseId} 
-                  onValueChange={(value) => setNewUser(prev => ({ ...prev, franchiseId: value }))}
-                  disabled={!newUser.orgId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select franchise" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {franchises?.map((franchise) => (
-                      <SelectItem key={franchise._id} value={franchise._id}>
-                        {franchise.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Franchise Assignment */}
+              <div className="space-y-3">
+                <Label>Franchise Assignment *</Label>
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="franchiseAssignment"
+                      checked={!newUser.createNewFranchise}
+                      onChange={() => setNewUser(prev => ({ ...prev, createNewFranchise: false, franchiseId: "" }))}
+                    />
+                    <span>Assign to existing franchise</span>
+                  </label>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="franchiseAssignment"
+                      checked={newUser.createNewFranchise}
+                      onChange={() => setNewUser(prev => ({ ...prev, createNewFranchise: true, franchiseId: "" }))}
+                    />
+                    <span>Create new franchise</span>
+                  </label>
+                </div>
+                
+                {!newUser.createNewFranchise && (
+                  <Select 
+                    value={newUser.franchiseId} 
+                    onValueChange={(value) => setNewUser(prev => ({ ...prev, franchiseId: value }))}
+                    disabled={!newUser.orgId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select existing franchise" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {franchises?.map((franchise) => (
+                        <SelectItem key={franchise._id} value={franchise._id}>
+                          {franchise.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div>
-                <Label htmlFor="role">Role *</Label>
-                <Select 
-                  value={newUser.role} 
-                  onValueChange={(value) => setNewUser(prev => ({ ...prev, role: value as "owner" | "member" }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="owner">Owner (Full Access)</SelectItem>
-                    <SelectItem value="member">Member (Limited Access)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Portal Type *</Label>
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="portalType"
+                      checked={!newUser.isStoreOps}
+                      onChange={() => setNewUser(prev => ({ ...prev, isStoreOps: false, allowedPages: [] }))}
+                    />
+                    <span>Owner Operations Portal</span>
+                  </label>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="portalType"
+                      checked={newUser.isStoreOps}
+                      onChange={() => setNewUser(prev => ({ 
+                        ...prev, 
+                        isStoreOps: true, 
+                        role: "member", 
+                        allowedPages: ["/store-ops"] 
+                      }))}
+                    />
+                    <span>Store Operations Portal</span>
+                  </label>
+                </div>
               </div>
 
-              {newUser.role === "member" && (
+              {!newUser.isStoreOps && (
+                <div>
+                  <Label htmlFor="role">Role *</Label>
+                  <Select 
+                    value={newUser.role} 
+                    onValueChange={(value) => setNewUser(prev => ({ ...prev, role: value as "owner" | "member" }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="owner">Owner (Full Access)</SelectItem>
+                      <SelectItem value="member">Member (Limited Access)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {!newUser.isStoreOps && newUser.role === "member" && (
                 <div>
                   <Label>Allowed Pages</Label>
                   <div className="grid grid-cols-2 gap-2 mt-2">
-                    {allPages.map((page) => (
+                    {getAvailablePages().map((page) => (
                       <label key={page} className="flex items-center space-x-2 text-sm">
                         <input
                           type="checkbox"
@@ -280,6 +362,23 @@ export default function AdminUsersPage() {
                       </label>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {newUser.isStoreOps && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded border">
+                  <p className="text-blue-800 dark:text-blue-200 text-sm">
+                    <strong>Store Operations Portal:</strong> Users will have access to all Store Ops modules including:
+                  </p>
+                  <ul className="text-blue-800 dark:text-blue-200 text-xs mt-2 ml-4 list-disc">
+                    <li>Operational Info & Store Profiles</li>
+                    <li>Rep Averages Tracking</li>
+                    <li>Daily, SL & DL Checklists</li>
+                    <li>Returns Tracker & Callback List</li>
+                    <li>Close-Dated Products</li>
+                    <li>Tablet Counts & Cleaning Schedules</li>
+                    <li>Ordering Budget Management</li>
+                  </ul>
                 </div>
               )}
 
@@ -347,6 +446,11 @@ export default function AdminUsersPage() {
                       <Badge variant={user.role === "owner" ? "default" : "secondary"}>
                         {user.role || "No Role"}
                       </Badge>
+                      {user.isStoreOps && (
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                          Store Ops
+                        </Badge>
+                      )}
                       {user.tokenIdentifier?.startsWith("pending_") && (
                         <Badge variant="outline">Pending Sign-in</Badge>
                       )}
@@ -380,20 +484,36 @@ export default function AdminUsersPage() {
       {/* Quick Setup Instructions */}
       <Card>
         <CardHeader>
-          <CardTitle>Quick Setup Guide</CardTitle>
+          <CardTitle>User Account Creation Guide</CardTitle>
         </CardHeader>
         <CardContent className="prose prose-sm max-w-none">
-          <ol>
-            <li>Create organizations and franchises if they don't exist</li>
-            <li>Create user profiles with email addresses</li>
-            <li>Users will be prompted to sign up using those exact email addresses</li>
-            <li>Once they sign in, they'll have immediate access to their assigned org/franchise</li>
-          </ol>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>
+              <h4 className="font-semibold text-green-700 mb-2">Owner Operations Portal</h4>
+              <ul className="text-sm space-y-1">
+                <li>• Sales analytics & reporting</li>
+                <li>• Inventory management</li>
+                <li>• Upload tools & data processing</li>
+                <li>• Budget tracking & chat AI</li>
+                <li>• Full business intelligence</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold text-blue-700 mb-2">Store Operations Portal</h4>
+              <ul className="text-sm space-y-1">
+                <li>• Daily operational checklists</li>
+                <li>• Store cleaning & maintenance</li>
+                <li>• Returns & callback tracking</li>
+                <li>• Close-dated inventory alerts</li>
+                <li>• Rep performance tracking</li>
+              </ul>
+            </div>
+          </div>
           
-          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border">
-            <p className="text-blue-800 dark:text-blue-200 text-sm">
-              <strong>Pro tip:</strong> Users must sign up with the exact email address you specify here. 
-              The system will automatically link their Clerk account to the pre-created profile.
+          <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded border">
+            <p className="text-green-800 dark:text-green-200 text-sm">
+              <strong>✅ Automated Setup:</strong> This creates complete accounts with both Clerk authentication and Convex profiles. 
+              Users can sign in immediately with the credentials provided.
             </p>
           </div>
         </CardContent>

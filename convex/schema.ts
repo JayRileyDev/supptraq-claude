@@ -29,12 +29,14 @@ export default defineSchema({
     franchiseId: v.optional(v.id("franchises")),
     role: v.optional(v.union(v.literal("owner"), v.literal("member"))),
     allowedPages: v.optional(v.array(v.string())), // for members only
+    isStoreOps: v.optional(v.boolean()), // true for store operations accounts
     createdAt: v.optional(v.number()),
   })
     .index("by_token", ["tokenIdentifier"])
     .index("by_org", ["orgId"])
     .index("by_franchise", ["franchiseId"])
-    .index("by_role", ["role"]),
+    .index("by_role", ["role"])
+    .index("by_store_ops", ["isStoreOps"]),
 
   subscriptions: defineTable({
     userId: v.optional(v.string()),
@@ -287,4 +289,280 @@ export default defineSchema({
     .index("by_org", ["orgId"])
     .index("by_franchise", ["franchiseId"])
     .index("by_franchise_store", ["franchiseId", "store_id"]),
+
+  // Store Operations Portal Tables
+  
+  // Store profile information (operational info)
+  store_profiles: defineTable({
+    orgId: v.id("organizations"),
+    franchiseId: v.id("franchises"),
+    store_name: v.string(),
+    address: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    wifi_password: v.optional(v.string()),
+    lockbox_code: v.optional(v.string()),
+    landlord_name: v.optional(v.string()),
+    landlord_phone: v.optional(v.string()),
+    landlord_email: v.optional(v.string()),
+    store_lead: v.optional(v.string()),
+    district_manager: v.optional(v.string()),
+    regional_manager: v.optional(v.string()),
+    pos_credentials: v.optional(v.object({
+      username: v.optional(v.string()),
+      password: v.optional(v.string()),
+      notes: v.optional(v.string()),
+    })),
+    other_info: v.optional(v.any()), // JSON for flexible additional info
+    updated_by: v.optional(v.string()),
+    updated_at: v.optional(v.number()),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_franchise", ["franchiseId"])
+    .index("by_org_franchise", ["orgId", "franchiseId"]),
+
+  // Rep averages tracking
+  rep_averages: defineTable({
+    orgId: v.id("organizations"),
+    franchiseId: v.id("franchises"),
+    month: v.string(), // "2024-01"
+    rep_name: v.string(),
+    daily_averages: v.array(v.object({
+      date: v.number(), // day of month 1-31
+      amount: v.optional(v.number()),
+      shifts: v.optional(v.number()),
+    })),
+    monthly_average: v.optional(v.number()),
+    monthly_shifts: v.optional(v.number()),
+    commission_level: v.optional(v.union(
+      v.literal(125),
+      v.literal(199),
+      v.literal(299)
+    )),
+    updated_by: v.optional(v.string()),
+    updated_at: v.optional(v.number()),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_franchise", ["franchiseId"])
+    .index("by_franchise_month", ["franchiseId", "month"])
+    .index("by_franchise_rep", ["franchiseId", "rep_name"]),
+
+  // Daily checklist
+  daily_checklists: defineTable({
+    orgId: v.id("organizations"),
+    franchiseId: v.id("franchises"),
+    week_start: v.string(), // "2024-01-01" (Monday)
+    tasks: v.array(v.object({
+      task_name: v.string(),
+      task_category: v.optional(v.string()),
+      is_required: v.boolean(),
+      monday: v.optional(v.string()), // staff initials
+      tuesday: v.optional(v.string()),
+      wednesday: v.optional(v.string()),
+      thursday: v.optional(v.string()),
+      friday: v.optional(v.string()),
+      saturday: v.optional(v.string()),
+      sunday: v.optional(v.string()),
+    })),
+    updated_by: v.optional(v.string()),
+    updated_at: v.optional(v.number()),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_franchise", ["franchiseId"])
+    .index("by_franchise_week", ["franchiseId", "week_start"]),
+
+  // Store Lead checklist
+  sl_checklists: defineTable({
+    orgId: v.id("organizations"),
+    franchiseId: v.id("franchises"),
+    week_start: v.string(), // "2024-01-01" (Monday)
+    tasks: v.array(v.object({
+      task_name: v.string(),
+      task_category: v.optional(v.string()),
+      monday: v.optional(v.string()), // staff initials
+      tuesday: v.optional(v.string()),
+      wednesday: v.optional(v.string()),
+      thursday: v.optional(v.string()),
+      friday: v.optional(v.string()),
+      saturday: v.optional(v.string()),
+      sunday: v.optional(v.string()),
+    })),
+    updated_by: v.optional(v.string()),
+    updated_at: v.optional(v.number()),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_franchise", ["franchiseId"])
+    .index("by_franchise_week", ["franchiseId", "week_start"]),
+
+  // District Lead checklist
+  dl_checklists: defineTable({
+    orgId: v.id("organizations"),
+    franchiseId: v.id("franchises"),
+    month: v.string(), // "2024-01"
+    categories: v.array(v.object({
+      category_name: v.string(), // "Housekeeping", "Finance", "Ops", "Marketing"
+      tasks: v.array(v.object({
+        task_name: v.string(),
+        completed_dates: v.array(v.object({
+          date: v.string(),
+          completed_by: v.string(),
+        })),
+      })),
+    })),
+    updated_by: v.optional(v.string()),
+    updated_at: v.optional(v.number()),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_franchise", ["franchiseId"])
+    .index("by_franchise_month", ["franchiseId", "month"]),
+
+  // Returns tracking
+  returns: defineTable({
+    orgId: v.id("organizations"),
+    franchiseId: v.id("franchises"),
+    staff_member: v.string(),
+    customer_name: v.optional(v.string()),
+    customer_phone: v.optional(v.string()),
+    vendor: v.string(),
+    product_name: v.string(),
+    size: v.optional(v.string()),
+    quantity: v.optional(v.number()),
+    expiry_date: v.optional(v.string()),
+    lot_number: v.optional(v.string()),
+    reason_for_return: v.string(),
+    date_submitted: v.string(),
+    last_follow_up: v.optional(v.string()),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("in_progress"),
+      v.literal("completed"),
+      v.literal("rejected")
+    ),
+    notes: v.optional(v.string()),
+    created_at: v.number(),
+    updated_by: v.optional(v.string()),
+    updated_at: v.optional(v.number()),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_franchise", ["franchiseId"])
+    .index("by_status", ["status"])
+    .index("by_franchise_status", ["franchiseId", "status"]),
+
+  // Callback list
+  callbacks: defineTable({
+    orgId: v.id("organizations"),
+    franchiseId: v.id("franchises"),
+    date_requested: v.string(),
+    staff_member: v.string(),
+    item_requested: v.string(),
+    flavor: v.optional(v.string()),
+    size_servings: v.optional(v.string()),
+    quantity: v.optional(v.number()),
+    customer_name: v.string(),
+    customer_phone: v.string(),
+    prepaid: v.boolean(),
+    transfer_location: v.optional(v.string()),
+    call_date: v.optional(v.string()),
+    called_by: v.optional(v.string()),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("no_answer"),
+      v.literal("voicemail"),
+      v.literal("contacted"),
+      v.literal("in_transfer"),
+      v.literal("important"),
+      v.literal("completed")
+    ),
+    comments: v.optional(v.string()),
+    created_at: v.number(),
+    updated_by: v.optional(v.string()),
+    updated_at: v.optional(v.number()),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_franchise", ["franchiseId"])
+    .index("by_status", ["status"])
+    .index("by_franchise_status", ["franchiseId", "status"]),
+
+  // Close-dated inventory
+  close_dated_inventory: defineTable({
+    orgId: v.id("organizations"),
+    franchiseId: v.id("franchises"),
+    product_name: v.string(),
+    flavor: v.optional(v.string()),
+    size: v.optional(v.string()),
+    quantity: v.number(),
+    expiry_date: v.string(), // "2024-01-31"
+    days_until_expiry: v.number(), // calculated field
+    created_at: v.number(),
+    updated_by: v.optional(v.string()),
+    updated_at: v.optional(v.number()),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_franchise", ["franchiseId"])
+    .index("by_expiry", ["expiry_date"])
+    .index("by_franchise_expiry", ["franchiseId", "expiry_date"]),
+
+  // Tablet counts
+  tablet_counts: defineTable({
+    orgId: v.id("organizations"),
+    franchiseId: v.id("franchises"),
+    brand_name: v.string(),
+    last_counted_date: v.optional(v.string()),
+    last_counted_by: v.optional(v.string()),
+    count: v.optional(v.number()),
+    location: v.optional(v.string()), // "Main Wall", "SK Merch", etc.
+    notes: v.optional(v.string()),
+    priority: v.boolean(),
+    updated_at: v.optional(v.number()),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_franchise", ["franchiseId"])
+    .index("by_franchise_brand", ["franchiseId", "brand_name"]),
+
+  // Cleaning logs
+  cleaning_logs: defineTable({
+    orgId: v.id("organizations"),
+    franchiseId: v.id("franchises"),
+    area_name: v.string(),
+    area_category: v.string(), // "Lifestyle", "Mass Gainer", "Main Wall", "Other"
+    last_cleaned_date: v.optional(v.string()),
+    cleaned_by: v.optional(v.string()),
+    next_due_date: v.optional(v.string()),
+    is_completed: v.boolean(),
+    notes: v.optional(v.string()),
+    updated_at: v.optional(v.number()),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_franchise", ["franchiseId"])
+    .index("by_franchise_category", ["franchiseId", "area_category"]),
+
+  // Ordering budgets
+  ordering_budgets: defineTable({
+    orgId: v.id("organizations"),
+    franchiseId: v.id("franchises"),
+    vendor_name: v.string(),
+    month: v.string(), // "2024-01"
+    amount_spent: v.number(),
+    notes: v.optional(v.string()),
+    updated_by: v.optional(v.string()),
+    updated_at: v.optional(v.number()),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_franchise", ["franchiseId"])
+    .index("by_franchise_month", ["franchiseId", "month"])
+    .index("by_franchise_vendor_month", ["franchiseId", "vendor_name", "month"]),
+
+  // Budget targets
+  budget_targets: defineTable({
+    orgId: v.id("organizations"),
+    franchiseId: v.id("franchises"),
+    vendor_name: v.string(),
+    monthly_budget: v.number(),
+    minimum_inventory_target: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    updated_by: v.optional(v.string()),
+    updated_at: v.optional(v.number()),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_franchise", ["franchiseId"])
+    .index("by_franchise_vendor", ["franchiseId", "vendor_name"]),
 });

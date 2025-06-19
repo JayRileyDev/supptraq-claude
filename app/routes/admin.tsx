@@ -72,10 +72,16 @@ export default function AdminPage() {
     username: "",
     password: "",
     name: "",
+    // Store Ops specific fields
+    storeId: "",
+    storeUsername: "",
+    storeName: "",
+    // Organization/Franchise
     orgId: "",
     franchiseId: "",
     createNewFranchise: false,
     role: "member" as "owner" | "member",
+    isStoreOps: false,
     allowedPages: [] as string[],
   });
   const [isCreatingUser, setIsCreatingUser] = useState(false);
@@ -112,21 +118,36 @@ export default function AdminPage() {
 
   const handleCreateUser = async () => {
     try {
-      if (!newUser.email || !newUser.username || !newUser.password || !newUser.name) {
+      // Validate common fields
+      if (!newUser.email || !newUser.password || !newUser.orgId || !newUser.franchiseId) {
         toast.error("Please fill in all required fields");
         return;
       }
 
-      // Validate franchise assignment
-      if (!newUser.createNewFranchise && !newUser.franchiseId) {
-        toast.error("Please select an existing franchise or choose to create a new one");
-        return;
-      }
+      // Validate Store Ops specific fields
+      if (newUser.isStoreOps) {
+        if (!newUser.storeId || !newUser.storeUsername || !newUser.storeName) {
+          toast.error("Please fill in Store ID, Store Username, and Store Name");
+          return;
+        }
+      } else {
+        // Validate Owner Ops fields
+        if (!newUser.username || !newUser.name) {
+          toast.error("Please fill in Username and Name");
+          return;
+        }
+        
+        // Validate franchise assignment for Owner Ops
+        if (!newUser.createNewFranchise && !newUser.franchiseId) {
+          toast.error("Please select an existing franchise or choose to create a new one");
+          return;
+        }
 
-      // If creating new franchise, orgId is required
-      if (newUser.createNewFranchise && !newUser.orgId) {
-        toast.error("Please select an organization when creating a new franchise");
-        return;
+        // If creating new franchise, orgId is required
+        if (newUser.createNewFranchise && !newUser.orgId) {
+          toast.error("Please select an organization when creating a new franchise");
+          return;
+        }
       }
 
       setIsCreatingUser(true);
@@ -139,13 +160,19 @@ export default function AdminPage() {
         },
         body: JSON.stringify({
           email: newUser.email,
-          username: newUser.username,
+          username: newUser.isStoreOps ? newUser.storeUsername : newUser.username,
           password: newUser.password,
-          name: newUser.name,
+          name: newUser.isStoreOps ? newUser.storeName : newUser.name,
+          // Store Ops specific fields
+          storeId: newUser.isStoreOps ? newUser.storeId : undefined,
+          storeUsername: newUser.isStoreOps ? newUser.storeUsername : undefined,
+          storeName: newUser.isStoreOps ? newUser.storeName : undefined,
+          // Organization/Franchise
           orgId: newUser.createNewFranchise ? newUser.orgId : undefined,
-          franchiseId: newUser.createNewFranchise ? undefined : newUser.franchiseId,
-          createNewFranchise: newUser.createNewFranchise,
+          franchiseId: newUser.franchiseId,
+          createNewFranchise: newUser.createNewFranchise && !newUser.isStoreOps,
           role: newUser.role,
+          isStoreOps: newUser.isStoreOps,
           allowedPages: newUser.role === "member" ? newUser.allowedPages : undefined,
         }),
       });
@@ -159,7 +186,8 @@ export default function AdminPage() {
 
       if (result.success) {
         setCreatedCredentials(result.credentials);
-        toast.success("Complete user account created successfully!");
+        const portalType = newUser.isStoreOps ? "Store Operations" : "Owner Operations";
+        toast.success(`${portalType} Portal user created successfully!`);
         
         // Reset form
         setNewUser({
@@ -167,10 +195,14 @@ export default function AdminPage() {
           username: "",
           password: "",
           name: "",
+          storeId: "",
+          storeUsername: "",
+          storeName: "",
           orgId: "",
           franchiseId: "",
           createNewFranchise: false,
           role: "member",
+          isStoreOps: false,
           allowedPages: [],
         });
         setShowCreateUserDialog(false);
@@ -252,7 +284,7 @@ export default function AdminPage() {
     }
   };
 
-  const allPages = [
+  const ownerOpsPages = [
     "/dashboard",
     "/upload", 
     "/sales",
@@ -261,6 +293,10 @@ export default function AdminPage() {
     "/budget",
     "/settings",
     "/chat"
+  ];
+
+  const storeOpsPages = [
+    "/store-ops"
   ];
 
   return (
@@ -284,6 +320,24 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {/* Quick Navigation */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-lg">Admin Tools</h3>
+            <p className="text-sm text-muted-foreground">Quick access to admin functionality</p>
+          </div>
+          <div className="flex gap-3">
+            <Button asChild variant="default">
+              <a href="/admin/users">Enhanced User Management</a>
+            </Button>
+            <Button asChild variant="outline">
+              <a href="/admin">Overview Dashboard</a>
+            </Button>
+          </div>
+        </div>
+      </Card>
+
       <Tabs defaultValue="users" className="space-y-6">
         <TabsList>
           <TabsTrigger value="users">Users</TabsTrigger>
@@ -303,9 +357,12 @@ export default function AdminPage() {
                   Create User
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md">
+              <DialogContent className="max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>Create User Profile</DialogTitle>
+                  <DialogTitle>Create Complete User Account</DialogTitle>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Creates both Clerk authentication and Convex profile with immediate access
+                  </p>
                 </DialogHeader>
                 
                 <div className="space-y-4">
@@ -320,178 +377,299 @@ export default function AdminPage() {
                     />
                   </div>
 
-                  <div>
-                    <Label htmlFor="username">Username *</Label>
-                    <Input
-                      id="username"
-                      value={newUser.username}
-                      onChange={(e) => setNewUser(prev => ({ ...prev, username: e.target.value }))}
-                      placeholder="john.doe"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="password">Password *</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="password"
-                        type="text"
-                        value={newUser.password}
-                        onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
-                        placeholder="Enter password"
-                      />
-                      <Button 
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setNewUser(prev => ({ ...prev, password: generateRandomPassword() }))}
-                      >
-                        Generate
-                      </Button>
+                  {/* Portal Type Selection */}
+                  <div className="space-y-3">
+                    <Label>Portal Type *</Label>
+                    <div className="space-y-2">
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          name="portalType"
+                          checked={!newUser.isStoreOps}
+                          onChange={() => setNewUser(prev => ({ 
+                            ...prev, 
+                            isStoreOps: false, 
+                            allowedPages: [],
+                            storeId: "",
+                            storeUsername: "",
+                            storeName: ""
+                          }))}
+                        />
+                        <span>Owner Operations Portal</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          name="portalType"
+                          checked={newUser.isStoreOps}
+                          onChange={() => setNewUser(prev => ({ 
+                            ...prev, 
+                            isStoreOps: true, 
+                            role: "member", 
+                            allowedPages: ["/store-ops"],
+                            createNewFranchise: false
+                          }))}
+                        />
+                        <span>Store Operations Portal</span>
+                      </label>
                     </div>
                   </div>
 
-                  <div>
-                    <Label htmlFor="name">Full Name *</Label>
-                    <Input
-                      id="name"
-                      value={newUser.name}
-                      onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="John Doe"
-                    />
-                  </div>
-
-                  {/* Franchise Assignment Options */}
-                  <div className="space-y-6">
-                    <Label>Franchise Assignment *</Label>
-                    
-                    <div className="space-y-4">
-                      {/* Create New Franchise Option */}
-                      <div className="flex items-center space-x-3">
-                        <input
-                          type="radio"
-                          id="createNew"
-                          name="franchiseOption"
-                          checked={newUser.createNewFranchise}
-                          onChange={() => setNewUser(prev => ({ 
-                            ...prev, 
-                            createNewFranchise: true, 
-                            franchiseId: "",
-                            role: "owner"
-                          }))}
-                          className="rounded"
+                  {/* Conditional Fields Based on Portal Type */}
+                  {newUser.isStoreOps ? (
+                    /* Store Operations Portal Fields */
+                    <>
+                      <div>
+                        <Label htmlFor="storeId">Store ID *</Label>
+                        <Input
+                          id="storeId"
+                          value={newUser.storeId}
+                          onChange={(e) => setNewUser(prev => ({ ...prev, storeId: e.target.value.toUpperCase() }))}
+                          placeholder="AB-FS"
                         />
-                        <Label htmlFor="createNew" className="font-normal">
-                          Create New Franchise (Owner)
-                        </Label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Store code that matches your Convex tables (e.g., AB-FS)
+                        </p>
                       </div>
 
-                      {newUser.createNewFranchise && (
-                        <div className="ml-7 mt-3">
-                          <div className="space-y-2">
-                            <Label htmlFor="org">Organization *</Label>
-                            <Select 
-                              value={newUser.orgId} 
-                              onValueChange={(value) => setNewUser(prev => ({ ...prev, orgId: value }))}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select organization" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {organizations?.map((org) => (
-                                  <SelectItem key={org._id} value={org._id}>
-                                    {org.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Join Existing Franchise Option */}
-                      <div className="flex items-center space-x-3">
-                        <input
-                          type="radio"
-                          id="joinExisting"
-                          name="franchiseOption"
-                          checked={!newUser.createNewFranchise}
-                          onChange={() => setNewUser(prev => ({ 
-                            ...prev, 
-                            createNewFranchise: false, 
-                            orgId: "",
-                            role: "member"
-                          }))}
-                          className="rounded"
+                      <div>
+                        <Label htmlFor="storeUsername">Store Username *</Label>
+                        <Input
+                          id="storeUsername"
+                          value={newUser.storeUsername}
+                          onChange={(e) => setNewUser(prev => ({ ...prev, storeUsername: e.target.value }))}
+                          placeholder="sherwood.store"
                         />
-                        <Label htmlFor="joinExisting" className="font-normal">
-                          Add to Existing Franchise (Member)
-                        </Label>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="storeName">Store Name *</Label>
+                        <Input
+                          id="storeName"
+                          value={newUser.storeName}
+                          onChange={(e) => setNewUser(prev => ({ ...prev, storeName: e.target.value }))}
+                          placeholder="Sherwood Park Store"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="password">Password *</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="password"
+                            type="text"
+                            value={newUser.password}
+                            onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
+                            placeholder="Enter password"
+                          />
+                          <Button 
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setNewUser(prev => ({ ...prev, password: generateRandomPassword() }))}
+                          >
+                            Generate
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    /* Owner Operations Portal Fields */
+                    <>
+                      <div>
+                        <Label htmlFor="username">Username *</Label>
+                        <Input
+                          id="username"
+                          value={newUser.username}
+                          onChange={(e) => setNewUser(prev => ({ ...prev, username: e.target.value }))}
+                          placeholder="john.doe"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="password">Password *</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="password"
+                            type="text"
+                            value={newUser.password}
+                            onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
+                            placeholder="Enter password"
+                          />
+                          <Button 
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setNewUser(prev => ({ ...prev, password: generateRandomPassword() }))}
+                          >
+                            Generate
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="name">Full Name *</Label>
+                        <Input
+                          id="name"
+                          value={newUser.name}
+                          onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
+                          placeholder="John Doe"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Organization and Franchise Assignment */}
+                  <div className="space-y-4">
+                    <Label>Organization *</Label>
+                    <Select 
+                      value={newUser.orgId} 
+                      onValueChange={(value) => setNewUser(prev => ({ ...prev, orgId: value, franchiseId: "" }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select organization" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {organizations?.map((org) => (
+                          <SelectItem key={org._id} value={org._id}>
+                            {org.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-4">
+                    <Label>Franchise *</Label>
+                    <Select 
+                      value={newUser.franchiseId} 
+                      onValueChange={(value) => setNewUser(prev => ({ ...prev, franchiseId: value }))}
+                      disabled={!newUser.orgId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select franchise" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {franchises?.filter(f => f.orgId === newUser.orgId).map((franchise) => (
+                          <SelectItem key={franchise._id} value={franchise._id}>
+                            {franchise.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Franchise Creation Option (Owner Ops Only) */}
+                  {!newUser.isStoreOps && (
+                    <div className="space-y-4">
+                      <Label>Franchise Assignment *</Label>
+                      
+                      <div className="space-y-4">
+                        {/* Create New Franchise Option */}
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="radio"
+                            id="createNew"
+                            name="franchiseOption"
+                            checked={newUser.createNewFranchise}
+                            onChange={() => setNewUser(prev => ({ 
+                              ...prev, 
+                              createNewFranchise: true, 
+                              franchiseId: "",
+                              role: "owner"
+                            }))}
+                            className="rounded"
+                          />
+                          <Label htmlFor="createNew" className="font-normal">
+                            Create New Franchise (Owner)
+                          </Label>
+                        </div>
+
+                        {/* Join Existing Franchise Option */}
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="radio"
+                            id="joinExisting"
+                            name="franchiseOption"
+                            checked={!newUser.createNewFranchise}
+                            onChange={() => setNewUser(prev => ({ 
+                              ...prev, 
+                              createNewFranchise: false, 
+                              orgId: "",
+                              role: "member"
+                            }))}
+                            className="rounded"
+                          />
+                          <Label htmlFor="joinExisting" className="font-normal">
+                            Add to Existing Franchise (Member)
+                          </Label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Store Operations Portal Info */}
+                  {newUser.isStoreOps && (
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded border">
+                      <p className="text-blue-800 dark:text-blue-200 text-sm">
+                        <strong>Store Operations Portal:</strong> This user will have access to:
+                      </p>
+                      <ul className="text-blue-800 dark:text-blue-200 text-xs mt-2 ml-4 list-disc">
+                        <li>Operational Info & Store Profiles</li>
+                        <li>Rep Averages Tracking</li>
+                        <li>Daily, SL & DL Checklists</li>
+                        <li>Returns Tracker & Callback List</li>
+                        <li>Close-Dated Products</li>
+                        <li>Tablet Counts & Cleaning Schedules</li>
+                        <li>Ordering Budget Management</li>
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Role Assignment Info */}
+                  {!newUser.isStoreOps && (
+                    <>
+                      <div className="bg-muted/50 p-3 rounded-lg">
+                        <Label className="text-sm font-medium">Assigned Role</Label>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {newUser.createNewFranchise 
+                            ? "👑 Owner - Full access to new franchise" 
+                            : "👤 Member - Limited access to selected franchise"
+                          }
+                        </p>
                       </div>
 
                       {!newUser.createNewFranchise && (
-                        <div className="ml-7 mt-3 space-y-2">
-                          <Label htmlFor="franchise">Select Franchise *</Label>
-                          <Select 
-                            value={newUser.franchiseId} 
-                            onValueChange={(value) => setNewUser(prev => ({ ...prev, franchiseId: value }))}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select existing franchise" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {franchises?.map((franchise) => (
-                                <SelectItem key={franchise._id} value={franchise._id}>
-                                  {franchise.name} ({franchise.orgName})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                        <div>
+                          <Label>Allowed Pages</Label>
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            {ownerOpsPages.map((page) => (
+                              <label key={page} className="flex items-center space-x-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={newUser.allowedPages.includes(page)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setNewUser(prev => ({ 
+                                        ...prev, 
+                                        allowedPages: [...prev.allowedPages, page] 
+                                      }));
+                                    } else {
+                                      setNewUser(prev => ({ 
+                                        ...prev, 
+                                        allowedPages: prev.allowedPages.filter(p => p !== page) 
+                                      }));
+                                    }
+                                  }}
+                                  className="rounded"
+                                />
+                                <span>{page.replace("/", "")}</span>
+                              </label>
+                            ))}
+                          </div>
                         </div>
                       )}
-                    </div>
-                  </div>
-
-                  {/* Role is automatically determined by franchise choice */}
-                  <div className="bg-muted/50 p-3 rounded-lg">
-                    <Label className="text-sm font-medium">Assigned Role</Label>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {newUser.createNewFranchise 
-                        ? "👑 Owner - Full access to new franchise" 
-                        : "👤 Member - Limited access to selected franchise"
-                      }
-                    </p>
-                  </div>
-
-                  {!newUser.createNewFranchise && (
-                    <div>
-                      <Label>Allowed Pages</Label>
-                      <div className="grid grid-cols-2 gap-2 mt-2">
-                        {allPages.map((page) => (
-                          <label key={page} className="flex items-center space-x-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={newUser.allowedPages.includes(page)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setNewUser(prev => ({ 
-                                    ...prev, 
-                                    allowedPages: [...prev.allowedPages, page] 
-                                  }));
-                                } else {
-                                  setNewUser(prev => ({ 
-                                    ...prev, 
-                                    allowedPages: prev.allowedPages.filter(p => p !== page) 
-                                  }));
-                                }
-                              }}
-                              className="rounded"
-                            />
-                            <span>{page.replace("/", "")}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
+                    </>
                   )}
 
                   <Button 
@@ -528,6 +706,11 @@ export default function AdminPage() {
                           <Badge variant={user.role === "owner" ? "default" : "secondary"}>
                             {user.role || "No Role"}
                           </Badge>
+                          {user.isStoreOps && (
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              Store Ops
+                            </Badge>
+                          )}
                           {user.tokenIdentifier?.startsWith("pending_") && (
                             <Badge variant="outline">Pending Sign-in</Badge>
                           )}
@@ -832,7 +1015,7 @@ export default function AdminPage() {
                 <div>
                   <Label>Allowed Pages</Label>
                   <div className="grid grid-cols-2 gap-2 mt-2">
-                    {allPages.map((page) => (
+                    {ownerOpsPages.map((page) => (
                       <label key={page} className="flex items-center space-x-2 text-sm">
                         <input
                           type="checkbox"
@@ -885,7 +1068,7 @@ export default function AdminPage() {
         <Dialog open={!!createdCredentials} onOpenChange={() => setCreatedCredentials(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>✅ User Created Successfully!</DialogTitle>
+              <DialogTitle>✅ {createdCredentials.portalType || "User"} Account Created!</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2 text-sm">
@@ -898,9 +1081,19 @@ export default function AdminPage() {
                 <div className="font-mono bg-muted p-3 rounded border">
                   <strong>Password:</strong> {createdCredentials.password}
                 </div>
+                {createdCredentials.name && (
+                  <div className="font-mono bg-muted p-3 rounded border">
+                    <strong>{createdCredentials.storeId ? "Store Name" : "Full Name"}:</strong> {createdCredentials.name}
+                  </div>
+                )}
+                {createdCredentials.storeId && (
+                  <div className="font-mono bg-muted p-3 rounded border">
+                    <strong>Store ID:</strong> {createdCredentials.storeId}
+                  </div>
+                )}
               </div>
               <p className="text-sm text-muted-foreground">
-                Share these credentials with the user. They can sign in immediately!
+                Share these credentials with the {createdCredentials.storeId ? "store manager" : "user"}. They can sign in immediately and access their {createdCredentials.portalType}!
               </p>
               <Button onClick={() => setCreatedCredentials(null)} className="w-full">
                 Close

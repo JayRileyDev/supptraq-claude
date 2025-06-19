@@ -65,6 +65,7 @@ export const createUserProfile = mutation({
     orgId: v.id("organizations"),
     franchiseId: v.id("franchises"),
     role: v.union(v.literal("owner"), v.literal("member")),
+    isStoreOps: v.optional(v.boolean()),
     allowedPages: v.optional(v.array(v.string())),
     clerkId: v.optional(v.string()),
   },
@@ -85,6 +86,7 @@ export const createUserProfile = mutation({
         orgId: args.orgId,
         franchiseId: args.franchiseId,
         role: args.role,
+        isStoreOps: args.isStoreOps || false,
         allowedPages: args.allowedPages,
       });
       return { success: true, userId: existingUser._id, action: "updated" };
@@ -102,6 +104,7 @@ export const createUserProfile = mutation({
       orgId: args.orgId,
       franchiseId: args.franchiseId,
       role: args.role,
+      isStoreOps: args.isStoreOps || false,
       allowedPages: args.allowedPages,
       createdAt: Date.now(),
     });
@@ -228,6 +231,7 @@ export const updateUserProfile = mutation({
     orgId: v.optional(v.id("organizations")),
     franchiseId: v.optional(v.id("franchises")),
     role: v.optional(v.union(v.literal("owner"), v.literal("member"))),
+    isStoreOps: v.optional(v.boolean()),
     allowedPages: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
@@ -286,6 +290,7 @@ export const createUserWithExistingFranchise = mutation({
     name: v.string(),
     franchiseId: v.id("franchises"),
     role: v.union(v.literal("owner"), v.literal("member")),
+    isStoreOps: v.optional(v.boolean()),
     allowedPages: v.optional(v.array(v.string())),
     clerkId: v.optional(v.string()),
   },
@@ -318,6 +323,7 @@ export const createUserWithExistingFranchise = mutation({
       orgId: franchise.orgId,
       franchiseId: args.franchiseId,
       role: args.role,
+      isStoreOps: args.isStoreOps || false,
       allowedPages: args.allowedPages || [],
       createdAt: Date.now(),
     });
@@ -337,6 +343,7 @@ export const createUserWithNewFranchise = mutation({
     name: v.string(),
     orgId: v.id("organizations"),
     role: v.union(v.literal("owner"), v.literal("member")),
+    isStoreOps: v.optional(v.boolean()),
     allowedPages: v.optional(v.array(v.string())),
     clerkId: v.optional(v.string()),
   },
@@ -381,6 +388,7 @@ export const createUserWithNewFranchise = mutation({
       orgId: args.orgId,
       franchiseId,
       role: args.role,
+      isStoreOps: args.isStoreOps || false,
       allowedPages: args.allowedPages,
       createdAt: Date.now(),
     });
@@ -463,6 +471,7 @@ export const editUser = mutation({
     name: v.optional(v.string()),
     email: v.optional(v.string()),
     role: v.optional(v.union(v.literal("owner"), v.literal("member"))),
+    isStoreOps: v.optional(v.boolean()),
     allowedPages: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {

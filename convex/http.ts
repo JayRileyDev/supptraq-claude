@@ -235,52 +235,86 @@ http.route({
 const createCompleteUser = httpAction(async (ctx, request) => {
   try {
     const body = await request.json();
-    const { email, username, password, name, orgId, franchiseId, createNewFranchise, role, allowedPages } = body;
+    const { email, username, password, name, storeId, storeUsername, storeName, orgId, franchiseId, createNewFranchise, role, isStoreOps, allowedPages } = body;
 
-    // Validate required fields
-    if (!email || !username || !password || !name || !role) {
-      return new Response(JSON.stringify({ 
-        error: "Missing required fields",
-        required: ["email", "username", "password", "name", "role"]
-      }), {
-        status: 400,
-        headers: { 
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        }
-      });
+    // Validate required fields based on portal type
+    if (isStoreOps) {
+      if (!email || !storeUsername || !password || !storeName || !storeId) {
+        return new Response(JSON.stringify({ 
+          error: "Missing required fields for Store Operations Portal",
+          required: ["email", "storeUsername", "password", "storeName", "storeId"]
+        }), {
+          status: 400,
+          headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+          }
+        });
+      }
+    } else {
+      if (!email || !username || !password || !name || !role) {
+        return new Response(JSON.stringify({ 
+          error: "Missing required fields for Owner Operations Portal",
+          required: ["email", "username", "password", "name", "role"]
+        }), {
+          status: 400,
+          headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+          }
+        });
+      }
     }
 
-    // Validate franchise assignment logic
-    if (!createNewFranchise && !franchiseId) {
-      return new Response(JSON.stringify({ 
-        error: "Must either select an existing franchise or choose to create a new one",
-      }), {
-        status: 400,
-        headers: { 
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        }
-      });
-    }
+    // Validate franchise assignment logic (only for Owner Ops)
+    if (!isStoreOps) {
+      if (!createNewFranchise && !franchiseId) {
+        return new Response(JSON.stringify({ 
+          error: "Must either select an existing franchise or choose to create a new one",
+        }), {
+          status: 400,
+          headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+          }
+        });
+      }
 
-    // If creating new franchise, orgId is required
-    if (createNewFranchise && !orgId) {
-      return new Response(JSON.stringify({ 
-        error: "Organization ID is required when creating a new franchise",
-      }), {
-        status: 400,
-        headers: { 
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        }
-      });
+      // If creating new franchise, orgId is required
+      if (createNewFranchise && !orgId) {
+        return new Response(JSON.stringify({ 
+          error: "Organization ID is required when creating a new franchise",
+        }), {
+          status: 400,
+          headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+          }
+        });
+      }
+    } else {
+      // For Store Ops, require franchise and org
+      if (!franchiseId || !orgId) {
+        return new Response(JSON.stringify({ 
+          error: "Organization and franchise are required for Store Operations Portal users",
+        }), {
+          status: 400,
+          headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+          }
+        });
+      }
     }
 
     // Initialize Clerk client
@@ -291,12 +325,16 @@ const createCompleteUser = httpAction(async (ctx, request) => {
     // Step 1: Create user in Clerk
     let clerkUser;
     try {
+      // Use appropriate values based on portal type
+      const actualUsername = isStoreOps ? storeUsername : username;
+      const actualName = isStoreOps ? storeName : name;
+      
       clerkUser = await clerk.users.createUser({
         emailAddress: [email],
-        username: username,
+        username: actualUsername,
         password: password,
-        firstName: name.split(' ')[0] || name,
-        lastName: name.split(' ').slice(1).join(' ') || undefined,
+        firstName: actualName.split(' ')[0] || actualName,
+        lastName: actualName.split(' ').slice(1).join(' ') || undefined,
         skipPasswordChecks: true, // Allow simple passwords for admin-created accounts
         skipPasswordRequirement: false,
       });
@@ -322,24 +360,30 @@ const createCompleteUser = httpAction(async (ctx, request) => {
     // Step 2: Create user profile in Convex
     let result;
     try {
-      if (createNewFranchise) {
-        // Create user with new franchise
+      const actualName = isStoreOps ? storeName : name;
+      const actualRole = isStoreOps ? "member" : role;
+      const actualAllowedPages = isStoreOps ? ["/store-ops"] : (role === "member" ? allowedPages : undefined);
+      
+      if (createNewFranchise && !isStoreOps) {
+        // Create user with new franchise (Owner Ops only)
         result = await ctx.runMutation(api.admin.createUserWithNewFranchise, {
           email,
-          name,
+          name: actualName,
           orgId,
-          role,
-          allowedPages: role === "member" ? allowedPages : undefined,
+          role: actualRole,
+          isStoreOps: isStoreOps || false,
+          allowedPages: actualAllowedPages,
           clerkId: clerkUser.id, // Link to Clerk user
         });
       } else {
-        // Add user to existing franchise
+        // Add user to existing franchise (both Owner Ops members and Store Ops)
         result = await ctx.runMutation(api.admin.createUserWithExistingFranchise, {
           email,
-          name,
+          name: actualName,
           franchiseId,
-          role,
-          allowedPages: role === "member" ? allowedPages : undefined,
+          role: actualRole,
+          isStoreOps: isStoreOps || false,
+          allowedPages: actualAllowedPages,
           clerkId: clerkUser.id, // Link to Clerk user
         });
       }
@@ -358,8 +402,11 @@ const createCompleteUser = httpAction(async (ctx, request) => {
         convexUserId: result.userId,
         credentials: {
           email,
-          username,
-          password // Return for admin to share with user
+          username: isStoreOps ? storeUsername : username,
+          password, // Return for admin to share with user
+          name: isStoreOps ? storeName : name,
+          storeId: isStoreOps ? storeId : undefined,
+          portalType: isStoreOps ? "Store Operations Portal" : "Owner Operations Portal"
         }
       }), {
         status: 200,

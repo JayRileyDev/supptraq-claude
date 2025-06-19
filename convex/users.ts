@@ -41,7 +41,10 @@ export const getCurrentUser = query({
 });
 
 export const upsertUser = mutation({
-  handler: async (ctx) => {
+  args: {
+    isStoreOps: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
 
     if (!identity) {
@@ -56,14 +59,15 @@ export const upsertUser = mutation({
 
     if (existingUser) {
       // Update if needed
-      if (
-        existingUser.name !== identity.name ||
-        existingUser.email !== identity.email
-      ) {
-        await ctx.db.patch(existingUser._id, {
-          name: identity.name,
-          email: identity.email,
-        });
+      const updates: any = {};
+      if (existingUser.name !== identity.name) updates.name = identity.name;
+      if (existingUser.email !== identity.email) updates.email = identity.email;
+      if (args.isStoreOps !== undefined && existingUser.isStoreOps !== args.isStoreOps) {
+        updates.isStoreOps = args.isStoreOps;
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        await ctx.db.patch(existingUser._id, updates);
       }
       return existingUser;
     }
@@ -79,6 +83,7 @@ export const upsertUser = mutation({
       await ctx.db.patch(preCreatedProfile._id, {
         tokenIdentifier: identity.subject,
         name: identity.name || preCreatedProfile.name,
+        isStoreOps: args.isStoreOps,
       });
 
       // Update subscription userId if exists
@@ -101,6 +106,7 @@ export const upsertUser = mutation({
       name: identity.name,
       email: identity.email,
       tokenIdentifier: identity.subject,
+      isStoreOps: args.isStoreOps,
       createdAt: Date.now(),
     });
 
